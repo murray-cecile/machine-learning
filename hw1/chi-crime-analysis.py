@@ -8,6 +8,7 @@
 import pandas as pd
 import geopandas as gpd 
 import censusdata as census
+import fiona.crs
 from shapely.geometry import Point
 
 
@@ -79,16 +80,20 @@ def prep_census_shp():
 def load_crime_data():
     '''read in crime data for 2017 and 2018, convert points to Point'''
 
+    # https://data.cityofchicago.org/resource/6zsd-86xi.json
+    # NKyFQxon4PK1jslyPQw7zgUOr
+
     crime17 = pd.read_csv('raw/Crimes-2017.csv')
     crime18 = pd.read_csv('raw/Crimes-2018.csv')
     crimes = pd.concat([crime17, crime18])
 
     crimes['coords'] = list(zip(crimes.Longitude, crimes.Latitude))
     crimes['coords'] = crimes['coords'].apply(Point)
-    crimes = gpd.GeoDataFrame(crimes, geometry = 'coords')
+    crimes = gpd.GeoDataFrame(crimes, geometry = 'coords', crs = fiona.crs.from_epsg(4269))
     print(crimes.head())
 
     return crimes
+
 
 
 
@@ -98,4 +103,6 @@ if __name__ == "__main__":
     crimes = load_crime_data()
     cook_blks = prep_census_shp()
     cook_blks = cook_blks.merge(census_data, on='bg')
+
+    merged = gpd.sjoin(crimes, cook_blks, op = "within", how = 'inner')
 
