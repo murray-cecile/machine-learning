@@ -14,7 +14,7 @@ from shapely.geometry import Point
 
 TRACTCODE = 2
 BLKGRPCODE = 3
-HSBEGIN = 1
+HSBEGIN = 2
 HSEND = 17
 BABEGIN = 22
 EDUEND = 26
