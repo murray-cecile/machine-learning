@@ -14,18 +14,16 @@ from shapely.geometry import Point
 
 TRACTCODE = 2
 BLKGRPCODE = 3
-HSBEGIN = 19
-HSEND = 34
-BABEGIN = 39
-EDUEND = 42
+HSBEGIN = 1
+HSEND = 17
+BABEGIN = 22
+EDUEND = 26
 
 
 # TO DO
 # figure out why some of the education variables are NaNs
 # point in poly merge
 # answer summary stats questions
-
-
 
 
 def get_census_data():
@@ -36,7 +34,7 @@ def get_census_data():
     hhold_vars = list(map(lambda x: 'B11001_00' + str(x) + 'E', range(1, 10)))
     race_vars = list(map(lambda x: 'B03002_' + str(x).zfill(3) + 'E', range(1, 21)))
     edu_vars = list(map(lambda x: 'B15003_' + str(x).zfill(3) + 'E', range(1, 26)))
-    
+
 
     # make the query for all block groups in Cook County, in two chunks because the API only takes 
     data = census.download('acs5', 2017,
@@ -45,21 +43,22 @@ def get_census_data():
     edu = census.download('acs5', 2017,
         census.censusgeo([('state', '17'), ('county', '031'), ('block group', '*')]),
         edu_vars + ['B19013_001E']).reset_index()
+    edu['pct_nohs'] = edu.iloc[:,HSBEGIN:HSEND].sum(axis=1) / edu['B15003_001E']
+    edu['pct_BA'] = edu.iloc[:,BABEGIN:EDUEND].sum(axis=1) / edu['B15003_001E']
 
     data = pd.merge(data, edu, on='index')
     # print(data.head())
 
     # create unique FIPS ID
     data['bg'] = data['index'].apply(lambda x: '17031' + x.geo[TRACTCODE][1] + x.geo[BLKGRPCODE][1])
-    
+
     # compute variables of interest
     data['pct_1parent'] = data['B11001_004E'] / data['B11001_001E']
     data['pct_alone'] = data['B11001_008E'] / data['B11001_001E']
     data['pct_white'] = data['B03002_003E'] / data['B03002_001E']
     data['pct_black'] = data['B03002_004E'] / data['B03002_001E']
     data['pct_hisp'] = data['B03002_012E'] / data['B03002_001E']
-    data['pct_nohs'] = data.iloc[HSBEGIN:HSEND].sum(axis=1) / data['B15003_001E']
-    data['pct_BA'] = data.iloc[BABEGIN:EDUEND].sum(axis=1) / data['B15003_001E']
+    
     data['medinc'] = data['B19013_001E']
 
     rv = data[['bg', 'pct_1parent', 'pct_alone', 'pct_white', 'pct_black', 'pct_hisp', 'B15003_001E', 'pct_nohs', 'pct_BA', 'medinc']]
@@ -96,7 +95,6 @@ def load_crime_data():
 
 
 
-
 if __name__ == "__main__":
     
     census_data = get_census_data()
@@ -105,4 +103,5 @@ if __name__ == "__main__":
     cook_blks = cook_blks.merge(census_data, on='bg')
 
     merged = gpd.sjoin(crimes, cook_blks, op = "within", how = 'inner')
+    merged.to_csv('temp/merged_crime_acs_data.csv')
 
