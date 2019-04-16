@@ -3,20 +3,17 @@
 *STOP EXPLORING THE DATA: MOVE ON TO DOING ML*
 
 ### explore data
-- pairwise plot function
+- pairwise plots! showing how target variable varies with different features
 - get univariate distribution plots to appear in sequence
+- generally make plots less horrible
 
 ### process data
 - [what if a variable isn't numeric? e.g. zip code]
 
-### generate features
-- figure out cut
-- decide how to implement make_dummy for continuous
-
 ### build classifer
-- everything, also which model???
+- made crappy decision tree, should add some params
 
 ### evaluate
-- everything
+- actually build eval fns
 
-
+### WRITE UP WHAT I DID

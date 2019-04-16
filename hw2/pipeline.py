@@ -153,7 +153,45 @@ def make_dummy(df, var, true_vals, new_varname = ''):
 # 5. BUILD CLASSIFIER
 #==============================================================================#
 
+def create_train_test_sets(df, target, features, size):
+    ''' wrapper for scikitlearn's train_test_split 
+        Returns: x train, x test, y train, y test'''
+
+    y = df[target]
+    x = df[features]
+
+    return train_test_split(x, y, test_size=size)
+
+
+def build_decision_tree(x_train, y_train, *kwargs):
+    ''' wrapper to scikitlearn's build decision tree 
+        Returns: DecisionTreeClassifier object'''
+
+    return DecisionTreeClassifier().fit(x_train, y_train, kwargs)
 
 #==============================================================================#
 # 6. EVALUATE
 #==============================================================================#
+
+
+def make_tree_histogram(dec_tree):
+    ''''''
+
+    predicted_scores_test = dec_tree.predict_proba(x_test)[:,1]
+    return plt.hist(predicted_scores_test)
+
+
+def compute_accuracy(thresh, y_test):
+    ''''''
+
+    calc_threshold = lambda x,y: 0 if x < y else 1 
+    predicted_test = np.array( [calc_threshold(score, thresh) for score in predicted_scores_test] )
+    test_acc = accuracy(predicted_test, y_test)
+
+    return test_acc
+
+
+def get_feature_wt(dec_tree, feature_list):
+    ''' returns dict mapping feature names to weights'''
+
+    return dict(zip(feature_list, list(dec_tree.feature_importances_)))
