@@ -8,10 +8,11 @@
 import numpy as np
 import pandas as pd 
 import seaborn as sns
+import matplotlib.pyplot as plt
 import sklearn.tree as tree
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.cross_validation import train_test_split
+from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score as accuracy
 import graphviz 
 
@@ -48,22 +49,21 @@ def get_desc_stats(df, *cols):
     if cols:
         return df[df[list(cols)]].describe()
     else:
-        numeric_cols = df.columns.dtypes[]
-        # TO DO: implement this using df.dtypes
+        return df.select_dtypes(include = np.number).describe()
 
 
- def find_outliers(df, var, lb, ub):
-    ''' Checks whether all values of a variable fall within reasonable bounds '''
+def find_outliers(df, lb, ub, var):
+    ''' Checks whether all values of variable(s) fall within reasonable bounds '''
 
     too_small = df[var].loc[df[var] < lb]
     too_big = df[var].loc[df[var] > ub]
 
-    print('# of values that are too small: ', len(too_small.index))
-    print(too_small.head())
-    print('# of values that are too large:', len(too_big.index))
-    print(too_big.head())
+    print('# of values smaller than lower bound: ', len(too_small.index))
+    print(too_small.head().sort_values(by = var))
+    print('# of values larger than upper bound:', len(too_big.index))
+    print(too_big.head().sort_values(by = var, ascending = False))
 
-    return 
+    return f
 
 
 def plot_distr(df, *cols):
@@ -84,36 +84,46 @@ def plot_distr(df, *cols):
     return
 
 
-def compute_pct_diff(df, var1, var2):
+def plot_cond_dist(df, y, *x):
+    ''' Plot conditional distributiofn of x on categorical or binary y '''
+
+    for v in x:
+        sns.FacetGrid(df, col=y).map(plt.hist, v)
+
+
+
+def tab(df, y, *x):
+    ''' Compute summary statistics about y conditioned on categorical variable(s) x '''
+
+    if len(x) == 0:
+        return False
     
-    pass
-
-
-def tab(df, var1):
-
-    return df.groupby(var1).count()
+    else:
+        return df.groupby(x)[y].describe()
 
 
 #==============================================================================#
 # 3. PROCESS DATA
 #==============================================================================#
 
-def replace_missing(df, var, method = 'median'):
-    ''' Takes data frame, column name, and optional replacement method;
-        replaces missing values either with median (default) or with specified value;
+# some pre-processing to convert numeric NA's to the median of the column
+def replace_missing(df, *args, method = 'mean'):
+    ''' Takes data frame, replacement method, and arbitrary column names;
+        replaces missing values using specified method;
         returns data frame '''
 
     if method == 'median': 
-        df[var] = df[var].fillna(df[var].median())
+        for c in list(args):
+            df[c] = df[c].fillna(df[c].median())
     
     elif method == "mean":
-        df[var] = df[var].fillna(df[var].mean())
+        for c in list(args):
+            df[c] = df[c].fillna(df[c].mean())
 
     else:
         pass
     
     return df
-
 
 #==============================================================================#
 # 4. GENERATE FEATURES
