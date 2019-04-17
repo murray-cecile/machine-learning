@@ -14,7 +14,6 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.cross_validation import train_test_split
 from sklearn.metrics import accuracy_score as accuracy
 import graphviz 
-%matplotlib inline
 
 
 # globals
@@ -167,7 +166,9 @@ def build_decision_tree(x_train, y_train, *kwargs):
     ''' wrapper to scikitlearn's build decision tree 
         Returns: DecisionTreeClassifier object'''
 
-    return DecisionTreeClassifier().fit(x_train, y_train, kwargs)
+    return DecisionTreeClassifier(*kwargs).fit(x_train, y_train)
+
+
 
 #==============================================================================#
 # 6. EVALUATE
@@ -175,17 +176,17 @@ def build_decision_tree(x_train, y_train, *kwargs):
 
 
 def make_tree_histogram(dec_tree):
-    ''''''
+    '''CITE '''
 
     predicted_scores_test = dec_tree.predict_proba(x_test)[:,1]
     return plt.hist(predicted_scores_test)
 
 
 def compute_accuracy(thresh, y_test):
-    ''''''
+    '''CITE'''
 
     calc_threshold = lambda x,y: 0 if x < y else 1 
-    predicted_test = np.array( [calc_threshold(score, thresh) for score in predicted_scores_test] )
+    predicted_test = np.array([calc_threshold(score, thresh) for score in predicted_scores_test])
     test_acc = accuracy(predicted_test, y_test)
 
     return test_acc
@@ -195,3 +196,12 @@ def get_feature_wt(dec_tree, feature_list):
     ''' returns dict mapping feature names to weights'''
 
     return dict(zip(feature_list, list(dec_tree.feature_importances_)))
+
+
+def test_tree_depths(depths = list(range(1, 6)), *kwargs):
+    ''' Test different depths for the tree; default gives depths 1-5
+        Returns: some nice way of comparing'''
+
+    for d in depths:
+
+        dec_tree = build_decision_tree
