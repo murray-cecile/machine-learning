@@ -8,6 +8,7 @@
 import numpy as np
 import pandas as pd 
 import seaborn as sns
+import plotnine as p9
 import matplotlib.pyplot as plt
 import sklearn.tree as tree
 from sklearn.tree import DecisionTreeClassifier
@@ -16,9 +17,6 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score as accuracy
 import graphviz 
 
-
-# globals
-NUMERIC_TYPES = set(('int', 'float', 'int64', 'float64'))
 
 #==============================================================================#
 # 1. READ IN DATA
@@ -31,9 +29,9 @@ def read_data(filename, file_type):
         If a data dict is provided it will rename vars'''
     
     if file_type == "csv":
-        return pd.read_csv(filename)
+        return pd.read_csv('data/' + filename + '.csv')
     elif file_type == "excel": 
-        return pd.read_excel(filename)
+        return pd.read_excel('data/' + filename + '.xlsx')
     else:
         print("filetype not supported")
         return
@@ -65,6 +63,24 @@ def find_outliers(df, lb, ub, var):
     print('\n')
 
     return 
+
+
+def plot_correlations(df, cols):
+    '''Takes a data frame, a list of columns, and a pair of names for plot axes
+        Returns a plot of pairwise correlations between all variables
+    '''
+
+    axisnames = ["Variable 1", "Variable 2", "Correlation"]
+
+    corr_df = pd.DataFrame(df[cols].corr().stack()).reset_index()
+    dict(zip(list(corr_df.columns), axisnames))
+    corr_df.rename(columns = dict(zip(list(corr_df.columns), axisnames)), inplace = True)
+
+    return (p9.ggplot(corr_df, p9.aes(axisnames[0], axisnames[1], fill=axisnames[2]))
+        + p9.geom_tile(p9.aes(width=.95, height=.95)) 
+        + p9.theme(
+        axis_text_x = p9.element_text(rotation = 90))
+        )
 
 
 def plot_distr(df, *cols):
@@ -233,7 +249,7 @@ def make_tree_chart(dec_tree, feature_labels, target_names, out_file = ''):
 
     viz = tree.export_graphviz(dec_tree,
                             feature_names=feature_labels,
-                            out_file=out_file,
+                            out_file= 'fig/' + out_file,
                             class_names=target_names,
                             rounded=True,
                             filled=True)

@@ -1,0 +1,33 @@
+digraph Tree {
+node [shape=box, style="filled, rounded", color="black", fontname=helvetica] ;
+edge [fontname=helvetica] ;
+0 [label="utilization_under_half <= 0.5\nentropy = 0.641\nsamples = 30762\nvalue = [25752, 5010]\nclass = NoDelinquency", fillcolor="#e58139cd"] ;
+1 [label="NumberOfTime30-59DaysPastDueNotWorse <= 0.5\nentropy = 0.893\nsamples = 11960\nvalue = [8258, 3702]\nclass = NoDelinquency", fillcolor="#e581398d"] ;
+0 -> 1 [labeldistance=2.5, labelangle=45, headlabel="True"] ;
+2 [label="utilization_over_half <= 0.5\nentropy = 0.742\nsamples = 8309\nvalue = [6561, 1748]\nclass = NoDelinquency", fillcolor="#e58139bb"] ;
+1 -> 2 ;
+3 [label="entropy = 0.518\nsamples = 2329\nvalue = [2059, 270]\nclass = NoDelinquency", fillcolor="#e58139de"] ;
+2 -> 3 ;
+4 [label="entropy = 0.807\nsamples = 5980\nvalue = [4502, 1478]\nclass = NoDelinquency", fillcolor="#e58139ab"] ;
+2 -> 4 ;
+5 [label="NumberOfTime30-59DaysPastDueNotWorse <= 1.5\nentropy = 0.996\nsamples = 3651\nvalue = [1697, 1954]\nclass = Delinquency", fillcolor="#399de522"] ;
+1 -> 5 ;
+6 [label="entropy = 0.99\nsamples = 2037\nvalue = [1140, 897]\nclass = NoDelinquency", fillcolor="#e5813936"] ;
+5 -> 6 ;
+7 [label="entropy = 0.93\nsamples = 1614\nvalue = [557, 1057]\nclass = Delinquency", fillcolor="#399de579"] ;
+5 -> 7 ;
+8 [label="NumberOfTime30-59DaysPastDueNotWorse <= 0.5\nentropy = 0.364\nsamples = 18802\nvalue = [17494, 1308]\nclass = NoDelinquency", fillcolor="#e58139ec"] ;
+0 -> 8 [labeldistance=2.5, labelangle=-45, headlabel="False"] ;
+9 [label="age_bracket_60-80 <= 0.5\nentropy = 0.274\nsamples = 16470\nvalue = [15695, 775]\nclass = NoDelinquency", fillcolor="#e58139f2"] ;
+8 -> 9 ;
+10 [label="entropy = 0.312\nsamples = 11118\nvalue = [10494, 624]\nclass = NoDelinquency", fillcolor="#e58139f0"] ;
+9 -> 10 ;
+11 [label="entropy = 0.185\nsamples = 5352\nvalue = [5201, 151]\nclass = NoDelinquency", fillcolor="#e58139f8"] ;
+9 -> 11 ;
+12 [label="NumberOfTime30-59DaysPastDueNotWorse <= 1.5\nentropy = 0.775\nsamples = 2332\nvalue = [1799, 533]\nclass = NoDelinquency", fillcolor="#e58139b3"] ;
+8 -> 12 ;
+13 [label="entropy = 0.683\nsamples = 1713\nvalue = [1402, 311]\nclass = NoDelinquency", fillcolor="#e58139c6"] ;
+12 -> 13 ;
+14 [label="entropy = 0.942\nsamples = 619\nvalue = [397, 222]\nclass = NoDelinquency", fillcolor="#e5813970"] ;
+12 -> 14 ;
+}
