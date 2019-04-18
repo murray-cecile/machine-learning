@@ -1,20 +1,20 @@
 ## TO DO:
 
-*STOP EXPLORING THE DATA: MOVE ON TO DOING ML*
 
 ### explore data
-- pairwise plots! showing how target variable varies with different features
-- get univariate distribution plots to appear in sequence
-- generally make plots less horrible
+- **CORRELATION MATRIX/PLOT**
+- you have too many horrible tables
+- make plots less horrible?
 
 ### process data
-- [what if a variable isn't numeric? e.g. zip code]
+- what to do about zip codes
+- check if other variables are NA
 
 ### build classifer
-- made crappy decision tree, should add some params
+meh, okay for now
 
 ### evaluate
-- actually build eval fns
+- **evaluate criterion and combine with threshold and max depth**
 
 ### WRITE UP WHAT I DID
 - justify choice of variables

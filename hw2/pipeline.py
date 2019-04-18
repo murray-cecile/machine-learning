@@ -130,10 +130,9 @@ def replace_missing(df, *args, method = 'mean'):
 # 4. GENERATE FEATURES
 #==============================================================================#
 
-def bin_continuous(df, var, breaks, labels = False):
+def bin_continuous(df, var, new_varname, breaks, labels = False):
     ''' Convert continuous variable to discrete/categorical '''
 
-    new_varname = var + '_disc'
 
     # handle case where upper bound less than max of variable
     if breaks[-1] < df[var].max():
@@ -147,40 +146,15 @@ def bin_continuous(df, var, breaks, labels = False):
         df[new_varname] = pd.cut(df[var], np.array(breaks), labels = labels)
     else:
         df[new_varname] = pd.cut(df[var], np.array(breaks))
-
-    return df
-
-
-def make_cat_dummy(df, var, true_vals, new_varname = ''):
-    ''' Takes: a data frame, the name of a categorical variable, the values to
-        be assigned True, optional new variable name
-        Returns: data frame with dummy variable added '''
-
-    if not new_varname:
-        new_varname = var + '_dummy'
-    
-    df[new_varname] = df[var] in true_vals
-
-    return df
-
-
-def make_cont_dummy(df, var, thresh, new_varname, greater = True, equal = True):
-    '''Takes: a dataframe, string name of continuous variable, numeric threshold,
-                string new variable name. Optional boolean args to switch from
-                greater than => True (default) to less than => True, and to apply 
-                strict inequality (default is greater than or equal tos)
-        Returns: new dataframe with new column appended'''
-    
-    if greater and equal:
-        df[new_varname] = np.where(df[var] >= thresh, 1, 0)
-    elif greater and not equal:
-        df[new_varname] = np.where(df[var] > thresh, 1, 0)
-    elif not greater and equal:
-        df[new_varname] = np.where(df[var] <= thresh, 1, 0)
-    else:
-        df[new_varname] = np.where(df[var] < thresh, 1, 0)
     
     return df
+
+
+def make_cat_dummy(df, cols):
+    '''Convert categorical variable or list of categorical variables into binary '''
+
+    return pd.get_dummies(df, dummy_na=True, columns=cols)
+
 
 
 #==============================================================================#
@@ -249,3 +223,16 @@ def test_tree_depths(x_train, y_train, x_test, y_test, depths, threshold, criter
     
     return pd.DataFrame(results, columns = ['Depth', 'Train Accuracy', 'Test Accuracy'])
 
+
+def make_tree_chart(dec_tree, feature_labels, target_names):
+    ''' Creates a visualization of the tree '''
+
+    viz = tree.export_graphviz(dec_tree, feature_names=feature_labels,
+                           class_names=target_names,
+                           rounded=True, filled=True)
+
+    with open("tree.dot") as f:
+        dot_graph = f.read()
+        graph = graphviz.Source(dot_graph)
+        
+    return graph
