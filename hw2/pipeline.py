@@ -249,12 +249,12 @@ def make_tree_chart(dec_tree, feature_labels, target_names, out_file = ''):
 
     viz = tree.export_graphviz(dec_tree,
                             feature_names=feature_labels,
-                            out_file= 'fig/' + out_file,
+                            out_file= 'figs/' + out_file,
                             class_names=target_names,
                             rounded=True,
                             filled=True)
 
-    with open(out_file) as f:
+    with open('figs/' + out_file) as f:
         dot_graph = f.read()
         graph = graphviz.Source(dot_graph)
         
