@@ -8,13 +8,13 @@
 
 ### process data
 - what to do about zip codes
-- check if other variables are NA
 
 ### build classifer
 meh, okay for now
 
 ### evaluate
-- **evaluate criterion and combine with threshold and max depth**
+also meh, also okay for for
 
 ### WRITE UP WHAT I DID
-- justify choice of variables
+- justify choice of variables?
+- note accuracy of tree relative to global probability 

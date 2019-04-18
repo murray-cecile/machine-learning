@@ -59,9 +59,9 @@ def find_outliers(df, lb, ub, var):
     too_big = df[var].loc[df[var] > ub]
 
     print('# of values smaller than lower bound: ', len(too_small.index))
-    print(too_small.head().sort_values(var))
+    print(too_small.head().sort_values())
     print('# of values larger than upper bound:', len(too_big.index))
-    print(too_big.head().sort_values(var, ascending = False))
+    print(too_big.head().sort_values(ascending = False))
     print('\n')
 
     return 
@@ -100,7 +100,7 @@ def tab(df, y, *x):
         return False
     
     else:
-        return df.groupby(*x)[y].describe()
+        return df.groupby(list(x))[y].describe()
 
 
 #==============================================================================#
@@ -205,33 +205,40 @@ def compute_accuracy(dec_tree, x_data, y_data, threshold):
     return accuracy(predicted_test, y_data)
 
 
-def test_tree_depths(x_train, y_train, x_test, y_test, depths, threshold, criterion = "gini"):
-    ''' Test different depths for the tree, given prediction threshold + optional criterion
-        Returns: ???
+def test_tree_accuracy(x_train, y_train, x_test, y_test, threshold, depths = list(range(0,15, 3)), criterion = ["gini"]):
+    ''' Test different parameters for the tree
+        Returns: data frame summarizing train and test accuracy
     '''
 
     results = []
 
-    for d in depths:
+    for c in criterion:
+        for d in depths:
 
-        dec_tree = DecisionTreeClassifier(max_depth=d, criterion=criterion).fit(x_train, y_train)
+            dec_tree = DecisionTreeClassifier(max_depth=d, criterion=c).fit(x_train, y_train)
 
-        train_acc = compute_accuracy(dec_tree, x_train, y_train, threshold)
-        test_acc = compute_accuracy(dec_tree, x_test, y_test, threshold)
+            train_acc = compute_accuracy(dec_tree, x_train, y_train, threshold)
+            test_acc = compute_accuracy(dec_tree, x_test, y_test, threshold)
 
-        results.append([d, train_acc, test_acc])
+            results.append([c, d, train_acc, test_acc])
     
-    return pd.DataFrame(results, columns = ['Depth', 'Train Accuracy', 'Test Accuracy'])
+    return pd.DataFrame(results, columns = ['Split Criterion', 'Depth', 'Train Accuracy', 'Test Accuracy'])
 
 
-def make_tree_chart(dec_tree, feature_labels, target_names):
+def make_tree_chart(dec_tree, feature_labels, target_names, out_file = ''):
     ''' Creates a visualization of the tree '''
 
-    viz = tree.export_graphviz(dec_tree, feature_names=feature_labels,
-                           class_names=target_names,
-                           rounded=True, filled=True)
+    if not out_file:
+        out_file = "tree.dot"
 
-    with open("tree.dot") as f:
+    viz = tree.export_graphviz(dec_tree,
+                            feature_names=feature_labels,
+                            out_file=out_file,
+                            class_names=target_names,
+                            rounded=True,
+                            filled=True)
+
+    with open(out_file) as f:
         dot_graph = f.read()
         graph = graphviz.Source(dot_graph)
         
