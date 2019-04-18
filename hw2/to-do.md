@@ -17,3 +17,4 @@
 - actually build eval fns
 
 ### WRITE UP WHAT I DID
+- justify choice of variables

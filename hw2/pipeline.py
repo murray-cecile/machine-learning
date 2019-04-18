@@ -59,11 +59,12 @@ def find_outliers(df, lb, ub, var):
     too_big = df[var].loc[df[var] > ub]
 
     print('# of values smaller than lower bound: ', len(too_small.index))
-    print(too_small.head().sort_values(by = var))
+    print(too_small.head().sort_values(var))
     print('# of values larger than upper bound:', len(too_big.index))
-    print(too_big.head().sort_values(by = var, ascending = False))
+    print(too_big.head().sort_values(var, ascending = False))
+    print('\n')
 
-    return f
+    return 
 
 
 def plot_distr(df, *cols):
@@ -78,7 +79,7 @@ def plot_distr(df, *cols):
 
     # this part is still plotting on top of everything
     for c in cols:
-        if str(df[c].dtype) in NUMERIC_TYPES:
+        if df[c].dtype == np.number:
             sns.distplot(df[c].loc[df[c].notnull()], kde = False)    
     
     return
@@ -99,7 +100,7 @@ def tab(df, y, *x):
         return False
     
     else:
-        return df.groupby(x)[y].describe()
+        return df.groupby(*x)[y].describe()
 
 
 #==============================================================================#
@@ -129,23 +130,28 @@ def replace_missing(df, *args, method = 'mean'):
 # 4. GENERATE FEATURES
 #==============================================================================#
 
-def discretize(df, var, breaks = [], num_breaks = False):
+def bin_continuous(df, var, breaks, labels = False):
     ''' Convert continuous variable to discrete/categorical '''
-
-    # TO DO: NaN for values outside the provided breaks, index label argument
 
     new_varname = var + '_disc'
 
-    if num_breaks:
-        df[new_varname] = pd.cut(df[var], num_breaks)
-    
+    # handle case where upper bound less than max of variable
+    if breaks[-1] < df[var].max():
+        breaks.append(df[var].max())
+        
+    # handle case where lower bound greater than min of variable
+    if breaks[0] > df[var].min():
+        breaks.insert(0, df[var].min())
+
+    if labels:
+        df[new_varname] = pd.cut(df[var], np.array(breaks), labels = labels)
     else:
         df[new_varname] = pd.cut(df[var], np.array(breaks))
 
     return df
 
 
-def make_dummy(df, var, true_vals, new_varname = ''):
+def make_cat_dummy(df, var, true_vals, new_varname = ''):
     ''' Takes: a data frame, the name of a categorical variable, the values to
         be assigned True, optional new variable name
         Returns: data frame with dummy variable added '''
@@ -155,6 +161,25 @@ def make_dummy(df, var, true_vals, new_varname = ''):
     
     df[new_varname] = df[var] in true_vals
 
+    return df
+
+
+def make_cont_dummy(df, var, thresh, new_varname, greater = True, equal = True):
+    '''Takes: a dataframe, string name of continuous variable, numeric threshold,
+                string new variable name. Optional boolean args to switch from
+                greater than => True (default) to less than => True, and to apply 
+                strict inequality (default is greater than or equal tos)
+        Returns: new dataframe with new column appended'''
+    
+    if greater and equal:
+        df[new_varname] = np.where(df[var] >= thresh, 1, 0)
+    elif greater and not equal:
+        df[new_varname] = np.where(df[var] > thresh, 1, 0)
+    elif not greater and equal:
+        df[new_varname] = np.where(df[var] <= thresh, 1, 0)
+    else:
+        df[new_varname] = np.where(df[var] < thresh, 1, 0)
+    
     return df
 
 
@@ -172,46 +197,55 @@ def create_train_test_sets(df, target, features, size):
     return train_test_split(x, y, test_size=size)
 
 
-def build_decision_tree(x_train, y_train, *kwargs):
-    ''' wrapper to scikitlearn's build decision tree 
-        Returns: DecisionTreeClassifier object'''
-
-    return DecisionTreeClassifier(*kwargs).fit(x_train, y_train)
-
-
-
 #==============================================================================#
 # 6. EVALUATE
 #==============================================================================#
 
+# This section draws heavily on code developed in ML Lab #2:  
+# https://github.com/dssg/MLforPublicPolicy/blob/master/labs/2019/lab2_sklearn_dt_knn.ipynb
 
-def make_tree_histogram(dec_tree):
-    '''CITE '''
+def plot_prediction_distribution(dec_tree, x_test):
+    '''Takes decision tree classifier object and test feature set
+        Returns plot of predicted probability distribution '''
 
     predicted_scores_test = dec_tree.predict_proba(x_test)[:,1]
     return plt.hist(predicted_scores_test)
 
 
-def compute_accuracy(thresh, y_test):
-    '''CITE'''
-
-    calc_threshold = lambda x,y: 0 if x < y else 1 
-    predicted_test = np.array([calc_threshold(score, thresh) for score in predicted_scores_test])
-    test_acc = accuracy(predicted_test, y_test)
-
-    return test_acc
-
-
 def get_feature_wt(dec_tree, feature_list):
-    ''' returns dict mapping feature names to weights'''
+    ''' returns dict mapping feature names to weights
+    '''
 
     return dict(zip(feature_list, list(dec_tree.feature_importances_)))
 
 
-def test_tree_depths(depths = list(range(1, 6)), *kwargs):
-    ''' Test different depths for the tree; default gives depths 1-5
-        Returns: some nice way of comparing'''
+def compute_accuracy(dec_tree, x_data, y_data, threshold):
+    ''' Takes: decision tree classifier object, feature and target data, and
+                prediction probability threshold
+        Returns: accuracy of predictions of tree on x for y
+    '''
+
+    pred_scores = dec_tree.predict_proba(x_data)[:,1]
+    calc_threshold = lambda x,y: 0 if x < y else 1 
+    predicted_test = np.array( [calc_threshold(score, threshold) for score in pred_scores] )
+    return accuracy(predicted_test, y_data)
+
+
+def test_tree_depths(x_train, y_train, x_test, y_test, depths, threshold, criterion = "gini"):
+    ''' Test different depths for the tree, given prediction threshold + optional criterion
+        Returns: ???
+    '''
+
+    results = []
 
     for d in depths:
 
-        dec_tree = build_decision_tree
+        dec_tree = DecisionTreeClassifier(max_depth=d, criterion=criterion).fit(x_train, y_train)
+
+        train_acc = compute_accuracy(dec_tree, x_train, y_train, threshold)
+        test_acc = compute_accuracy(dec_tree, x_test, y_test, threshold)
+
+        results.append([d, train_acc, test_acc])
+    
+    return pd.DataFrame(results, columns = ['Depth', 'Train Accuracy', 'Test Accuracy'])
+
