@@ -36,6 +36,13 @@ def read_data(filename, file_type):
 # PROCESS DATA
 #==============================================================================#
 
+def find_cols_with_missing(df):
+    ''' Returns a list of columns that contain missing values ''''
+
+    return list(df.columns[np.where(df.isna().sum() > 0, True, False)])
+
+
+
 # some pre-processing to convert numeric NA's to the median of the column
 def replace_missing(df, *args, method = 'mean'):
     ''' Takes data frame, replacement method, and arbitrary column names;

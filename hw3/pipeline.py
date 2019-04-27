@@ -1,5 +1,9 @@
 #==============================================================================#
-# MACHINE LEARNING FOR PUBLIC POLICY - PIPELINE
+# BUILD AND EVALUATE CLASSIFIERS
+# CAPP 30254 - MACHINE LEARNING FOR PUBLIC POLICY
+#
+#   REFERENCES:
+#   CAPP 30254 labs: https://github.com/dssg/MLforPublicPolicy/blob/master/labs/2019/
 #
 # Cecile Murray
 #==============================================================================#
@@ -24,8 +28,10 @@ from sklearn.svm import LinearSVC
 # evaluation methods
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score as accuracy
+from sklearn.metrics import precision_score as precision
+from sklearn.metrics import recall_score as recall
+from sklearn.metrics import f1_score as f1
 import graphviz 
-
 
 
 #==============================================================================#
@@ -48,16 +54,16 @@ def build_classifier(classifier_type, x_train, y_train, **params):
     '''
 
     if classifier_type == 'DecisionTree':
-        return DecisionTreeClassifier(params).fit(x_train, y_train)
+        return DecisionTreeClassifier(**params).fit(x_train, y_train)
 
     elif classifier_type == "LogisticRegression":
-        pass
+        return LogisticRegression(**params).fit(x_train, y_train)
     
     elif classifier_type == "KNN":
-        pass
+        return KNeighborsClassifier(**params).fit(x_train, y_train)
     
     elif classifier_type == "SVM":
-        pass
+        return LinearSVC(**params).fit(x_train, y_train)
 
     else:
         print("Classifier not supported.")
@@ -67,16 +73,6 @@ def build_classifier(classifier_type, x_train, y_train, **params):
 # EVALUATE CLASSIFIERS
 #==============================================================================#
 
-# This section draws heavily on code developed in ML Lab #2:  
-# https://github.com/dssg/MLforPublicPolicy/blob/master/labs/2019/lab2_sklearn_dt_knn.ipynb
-
-def plot_prediction_distribution(classifier, feature_set):
-    '''Takes decision tree classifier object and associated feature set
-        Returns plot of predicted probability distribution '''
-
-    predicted_scores = classifier.predict_proba(feature_set)[:,1]
-    return plt.hist(predicted_scores)
-
 
 def get_feature_wt(dec_tree, feature_list):
     ''' returns dict mapping feature names to weights
@@ -85,16 +81,19 @@ def get_feature_wt(dec_tree, feature_list):
     return dict(zip(feature_list, list(dec_tree.feature_importances_)))
 
 
-def compute_accuracy(classifier, x_data, y_data, threshold):
+def compute_eval_stats(classifier, x_data, y_data, threshold, labels = ''):
     ''' Takes: classifier object, feature and target data, and
                 prediction probability threshold
-        Returns: accuracy of predictions of tree on x for y
+        Returns: accuracy, precision, recall of predictions of classifier on x for y
     '''
 
     pred_scores = classifier.predict_proba(x_data)[:,1]
     calc_threshold = lambda x,y: 0 if x < y else 1 
     predicted_test = np.array( [calc_threshold(score, threshold) for score in pred_scores] )
-    return accuracy(predicted_test, y_data)
+
+    return accuracy(y_data, predicted_test), precision(y_data, predicted_test),
+    recall(y_data, predicted_test), f1(y_data, predicted_test)
+
 
 
 def test_tree_accuracy(x_train, y_train, x_test, y_test, threshold, depths = list(range(0,15, 3)), criterion = ["gini"]):
@@ -120,6 +119,14 @@ def test_tree_accuracy(x_train, y_train, x_test, y_test, threshold, depths = lis
 #==============================================================================#
 # VISUALIZATION TOOLS
 #==============================================================================#
+
+def plot_prediction_distribution(classifier, feature_set):
+    '''Takes decision tree classifier object and associated feature set
+        Returns plot of predicted probability distribution '''
+
+    predicted_scores = classifier.predict_proba(feature_set)[:,1]
+    return plt.hist(predicted_scores)
+
 
 def make_tree_chart(dec_tree, feature_labels, target_names, out_file = ''):
     ''' Creates a visualization of the tree '''
