@@ -37,10 +37,9 @@ def read_data(filename, file_type):
 #==============================================================================#
 
 def find_cols_with_missing(df):
-    ''' Returns a list of columns that contain missing values ''''
+    ''' Returns a list of columns that contain missing values '''
 
     return list(df.columns[np.where(df.isna().sum() > 0, True, False)])
-
 
 
 # some pre-processing to convert numeric NA's to the median of the column
