@@ -9,6 +9,7 @@
 #==============================================================================#
 
  # basic dependencies
+import math
 import numpy as np
 import pandas as pd 
 import seaborn as sns
@@ -28,6 +29,7 @@ from sklearn.ensemble import BaggingClassifier, RandomForestClassifier, Gradient
 
 # evaluation methods
 from sklearn.model_selection import train_test_split
+from sklearn.model_selection import TimeSeriesSplit
 from sklearn.metrics import accuracy_score as accuracy
 from sklearn.metrics import precision_score as precision
 from sklearn.metrics import recall_score as recall
@@ -52,10 +54,41 @@ def create_train_test_sets(df, target, features, size) = 0.25:
     return train_test_split(x, y, test_size=size)
 
 
-def create_temporal_validation(df, target, features, interval, size = 0.25):
-    ''' Create temporal validation function in your pipeline that can create training and test sets over time. You can choose the length of these splits based on analyzing the data. For example, the test sets could be six months long and the training sets could be all the data before each test set.
+def create_temporal_split_sets(df, date_col, feature_list, target, split_date):
+    ''' Takes full dataframe, string name of date columns, list of features,
+        string name of target variable, and date to split
+        Returns: training and test data frames (before/after split date)
     '''
-    pass
+
+    df[date_col] = pd.to_datetime(df[date_col])
+
+    x_train = df[feature_list].loc[df[date_col] < split_date]
+    y_train = df[target].loc[df[date_col] < split_date]
+    x_test = df[feature_list].loc[df[date_col] >= split_date]
+    y_test = df[target].loc[df[date_col] >= split_date]
+
+    return x_train, y_train, x_test, y_test
+
+
+def create_sliding_window_sets(df, date_col, feature_list, target, num_intervals):
+    ''' Takes full dataframe, string name of date column, list of features, 
+        string name of target variable, and number of intervals.
+        Returns dictionary containing training and testing sets for each interval
+    '''
+
+    df[date_col] = pd.to_datetime(df[date_col])
+    X = df[feature_list]
+    Y = df[target]
+
+    tcv = TimeSeriesSplit(num_intervals)
+    sets = {}
+    i = 0
+
+    for train, test in tcv.split(X):
+        sets[i]['train'] = X[train], Y[train]
+        sets[i]['test'] = X[test], Y[test]
+    
+    return sets
 
 
 def build_classifier(classifier_type, x_train, y_train, **params):
@@ -80,37 +113,24 @@ def build_classifier(classifier_type, x_train, y_train, **params):
         return 
 
 
-def build_bagged_classifier(classifier_type, classifier_params, **bag_params):
-    ''' Takes specific type of classifier, any parameters, and optional keyword arguments
-        Returns the trained bagged classifier object 
+def build_ensemble(ensemble_type, classifier, x_train, y_train, **params):
+    ''' Takes string designating which ensemble to use, classifier object, 
+        training data, and optional keyword parameters for ensemble
+        Returns trained classifier object
     '''
 
-    pass
-    # if classifier_type == 'DecisionTree':
-    #     classifier = DecisionTreeClassifier(**params)
+    if ensemble_type == "bag":
+        return BaggingClassifier(**params).fit(x_train, y_train)
 
-    # elif classifier_type == "LogisticRegression":
-    #     classifier = LogisticRegression(**params)
-    
-    # elif classifier_type == "KNN":
-    #     classifier = KNeighborsClassifier(**params)
-    
-    # elif classifier_type == "SVM":
-    #     classifier = LinearSVC(**params)
+    elif ensemble_type == "boost":
+        return BaggingClassifier(**params).fit(x_train, y_train) 
 
-    # else:
-    #     print("Classifier not supported.")
-    #     return 
+    elif ensemble_type == "RandomForest":
+        return RandomForestClassifier(**params).fit(x_train, y_train)
 
-    # return BaggingClassifier(classifier, **bag_params)
-
-
-def grow_random_forest(x_data, y_data, **params):
-    ''' Takes feature and target data and optional parameters
-        Returns: random forest classifier
-    '''
-
-    return RandomForestClassifier(**params).fit(x_data, y_data)
+    else:
+        print("Ensemble not supported")
+        return
 
 #==============================================================================#
 # EVALUATE CLASSIFIERS
@@ -222,15 +242,19 @@ def test_classifier_parameters(classifier_type, x_train, y_train, x_test, y_test
 #==============================================================================#
 
 def plot_prediction_distribution(classifier, feature_set):
-    '''Takes decision tree classifier object and associated feature set
+    '''Takes classifier object and associated feature set
         Returns plot of predicted probability distribution '''
 
-    predicted_scores = classifier.predict_proba(feature_set)[:,1]
+    if type(classifier) == sklearn.svm.classes.LinearSVC:
+        predicted_scores = classifier.decision_function(feature_set)[:,1]
+    else:
+        predicted_scores = classifier.predict_proba(feature_set)[:,1]
+    
     return plt.hist(predicted_scores)
 
 
 def make_tree_chart(dec_tree, feature_labels, target_names, out_file = ''):
-    ''' Creates a visualization of the tree '''
+    ''' Creates a visualization of a decision tree '''
 
     if not out_file:
         out_file = "tree.dot"
