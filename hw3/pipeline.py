@@ -44,7 +44,7 @@ import graphviz
 # BUILD CLASSIFIERS
 #==============================================================================#
 
-def create_train_test_sets(df, target, features, size) = 0.25:
+def create_train_test_sets(df, target, features, size = 0.25):
     ''' wrapper for scikitlearn's train_test_split 
         Returns: x train, x test, y train, y test'''
 
