@@ -70,25 +70,60 @@ def create_temporal_split_sets(df, date_col, feature_list, target, split_date):
     return x_train, y_train, x_test, y_test
 
 
-def create_sliding_window_sets(df, date_col, feature_list, target, num_intervals):
+def convert_duration_to_interval(df, date_col, time_interval, time_unit = "weeks", end_with_max = True):
+    ''' Takes dataframe, string name of date column, number of intervals
+        Will eventually allow different time intervals
+        Default option ends last interval with the latest date in the dataframe (so last chunk unequal)
+
+        Returns: list of dates demarcating time intervals
+    '''
+
+    df[date_col] = pd.to_datetime(df[date_col])
+    min_date = df[date_col].min()
+    max_date = df[date_col].max()
+    
+    intervals = [min_date]
+
+    if time_unit == "weeks":
+
+        interval_length = datetime.timedelta(weeks = time_interval)
+        num_intervals = math.floor((max_date - min_date) / interval_length)
+
+        i = 0
+        next_date = min_date
+        while i < num_intervals:
+            next_date = next_date + interval_length
+            intervals.append(next_date)
+            i += 1
+
+        # final interval will end with the final date u
+        if end_with_max and intervals[-1] < max_date :
+            intervals[-1] = max_date
+
+        return intervals
+    
+    else:
+        print("Time unit not yet supported; please convert to weeks")
+        return
+
+
+def create_sliding_window_sets(df, date_col, feature_list, target, time_interval, lag_time):
     ''' Takes full dataframe, string name of date column, list of features, 
-        string name of target variable, and number of intervals.
+        string name of target variable, number of intervals, and any lag time.
         Returns dictionary containing training and testing sets for each interval
     '''
 
     df[date_col] = pd.to_datetime(df[date_col])
-    X = df[feature_list]
-    Y = df[target]
-
-    tcv = TimeSeriesSplit(num_intervals)
-    sets = {}
-    i = 0
-
-    for train, test in tcv.split(X):
-        sets[i]['train'] = X[train], Y[train]
-        sets[i]['test'] = X[test], Y[test]
+    intervals = convert_duration_to_interval(df, date_col, time_interval)
     
-    return sets
+    df['interval'] = pd.cut(df[date_col], intervals)
+   
+    # we don't want to include any observations too close to train/test date,
+    # if we haven't yet observed their outcome
+    df['interval'] = np.where(df[date_col] + lag_time > df['interval'].apply(lambda x: x.right), np.nan, df.interval)
+    
+    return df
+
 
 
 def build_classifier(classifier_type, x_train, y_train, **params):
