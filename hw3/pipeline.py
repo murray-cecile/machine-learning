@@ -79,7 +79,6 @@ def convert_duration_to_interval(df, date_col, time_interval, time_unit = "weeks
         Returns: list of dates demarcating time intervals
     '''
 
-    df[date_col] = pd.to_datetime(df[date_col])
     min_date = df[date_col].min()
     max_date = df[date_col].max()
     
@@ -111,12 +110,32 @@ def convert_duration_to_interval(df, date_col, time_interval, time_unit = "weeks
 def create_sliding_window_sets(df, date_col, feature_list, target, time_interval, lag_time):
     ''' Takes full dataframe, string name of date column, list of features, 
         string name of target variable, number of intervals, and any lag time.
-        Returns dictionary containing training and testing sets for each interval
+        Returns dataframe with bins corresponding to interval membership
     '''
 
     df[date_col] = pd.to_datetime(df[date_col])
+
     intervals = convert_duration_to_interval(df, date_col, time_interval)
+    df['interval'] = pd.cut(df[date_col], intervals)
+   
+    # we don't want to include any observations too close to train/test date,
+    # if we haven't yet observed their outcome
+    df['interval'] = np.where(df[date_col] + lag_time > df['interval'].apply(lambda x: x.right), np.nan, df.interval)
     
+    return df
+
+
+def create_expanding_window_sets(df, date_col, feature_list, target, time_interval, lag_time):
+    ''' Takes full dataframe, string name of date column, list of features, 
+        string name of target variable, number of intervals, and any lag time.
+        Returns dataframe with bins corresponding to interval membership
+    '''
+
+    df[date_col] = pd.to_datetime(df[date_col])
+
+    breaks = convert_duration_to_interval(df, date_col, time_interval)
+    intervals = [Interval(df[date_col].min(), i) for b in breaks]
+
     df['interval'] = pd.cut(df[date_col], intervals)
    
     # we don't want to include any observations too close to train/test date,
@@ -275,6 +294,9 @@ def test_classifier_parameters(classifier_type, x_train, y_train, x_test, y_test
                                              'Test Precision',
                                              'Test Recall',
                                              'Test F1'])
+
+
+# def test_classifiers(x_train, y_train, x_test, y_test, threshold)
 
 #==============================================================================#
 # VISUALIZATION TOOLS
