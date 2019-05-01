@@ -9,6 +9,7 @@
 #==============================================================================#
 
  # basic dependencies
+import math
 import datetime
 import numpy as np
 import pandas as pd 
@@ -16,7 +17,7 @@ import seaborn as sns
 import plotnine as p9
 import matplotlib.pyplot as plt
 
-# my own library of useful functions
+# my own library of useful functionsD
 import utils
 
 # classifiers
@@ -41,7 +42,7 @@ import graphviz
 
 
 #==============================================================================#
-# BUILD CLASSIFIERS
+# BUILD TRAINING AND TEST SETS
 #==============================================================================#
 
 def create_train_test_sets(df, target, features, size = 0.25):
@@ -125,6 +126,9 @@ def create_sliding_window_sets(df, date_col, feature_list, target, time_interval
     return df
 
 
+#==============================================================================#
+# BUILD CLASSIFIERS
+#==============================================================================#
 
 def build_classifier(classifier_type, x_train, y_train, **params):
     ''' Takes specified type of classifier using training set and optional keyword arguments
@@ -158,7 +162,7 @@ def build_ensemble(ensemble_type, classifier, x_train, y_train, **params):
         return BaggingClassifier(**params).fit(x_train, y_train)
 
     elif ensemble_type == "boost":
-        return BaggingClassifier(**params).fit(x_train, y_train) 
+        return GradientBoostingClassifier(**params).fit(x_train, y_train) 
 
     elif ensemble_type == "RandomForest":
         return RandomForestClassifier(**params).fit(x_train, y_train)
