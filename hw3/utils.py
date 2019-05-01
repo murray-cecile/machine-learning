@@ -39,7 +39,7 @@ def read_data(filename, file_type):
 def find_cols_with_missing(df):
     ''' Returns columns that contain missing values with count of missing'''
 
-    return projraw.isna().sum()[projraw.isna().sum() > 0]
+    return df.isna().sum()[df.isna().sum() > 0]
 
 
 # some pre-processing to convert numeric NA's to the median of the column
@@ -73,11 +73,7 @@ def convert_to_boolean(df, cols, true_val, false_val):
         cols = [cols]
 
     for col in cols:
-        df[col] = np.where(df[col] == true_val, True, np.nan)
-        df[col] = np.where(df[col] == false_val, False, np.nan)
-
-        if df[col].isna().sum > 0:
-            print("Warning: NaNs introduced - check your true/false values.")
+        df[col] = np.where(df[col] == true_val, True, False)
     
     return df
 
