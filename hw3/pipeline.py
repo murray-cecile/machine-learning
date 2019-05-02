@@ -44,19 +44,20 @@ import graphviz
 # GLOBAL DEFAULTS
 #==============================================================================#
 
-THRESHOLDS = [0.01, 0.02, 0.05, 0.1, 0.2, 0.3, 0.5]
+# THRESHOLDS = [0.01, 0.02, 0.05, 0.1, 0.2, 0.3, 0.5]
+THRESHOLDS = [0.1, 0.2, 0.5, 0.75, 0.8, 0.9]
 
 CLASSIFIERS = {
     'DecisionTree': {'max_depth': [1, 3, 5, 10, 15],
                      'criterion': ['gini', 'entropy']
                      },
-    'KNN': {'k' = [3, 5, 10, 15, 25, 50]
-            },
+    'KNN': {'n_neighbors' : [3, 5, 10, 15, 25, 50],
+            'weights': ['uniform', 'distance']},
     'LogisticRegression': {'penalty': ['l1', 'l2'],
                             'C': [0.1, 1, 10, 100]
                             },
     'SVM': {'penalty': ['l1', 'l2'],
-            'C' = [0.1, 1, 10, 100]
+            'C' : [0.1, 1, 10, 100]
             },
     'BA': {'n_estimators': [10, 25, 100],
            'max_depth': [1, 3, 5, 10, 15]
@@ -67,6 +68,30 @@ CLASSIFIERS = {
     'RandomForest': {'n_estimators': [1, 10, 50, 100],
                      'max_depth': [1, 3, 5, 10, 15],
                      'criterion': ['gini', 'entropy']
+                     }
+}
+
+TEST_CLASSIFIERS = {
+    'DecisionTree': {'max_depth': [1],
+                     'criterion': ['gini']
+                     },
+    'KNN': {'n_neighbors' : [3],
+            'weights': ['uniform']},
+    'LogisticRegression': {'penalty': ['l1'],
+                            'C': [0.1]
+                            },
+    'SVM': {'penalty': ['l2'],
+            'C' : [0.1]
+            },
+    'BA': {'n_estimators': [10],
+           'max_depth': [1]
+            },
+    'GB': {'n_estimators': [10],
+            'max_depth': [1]
+            },
+    'RandomForest': {'n_estimators': [1],
+                     'max_depth': [1],
+                     'criterion': ['gini']
                      }
 }
 
@@ -145,13 +170,19 @@ def create_sliding_window_sets(df, date_col, feature_list, target, time_interval
 
     df[date_col] = pd.to_datetime(df[date_col])
 
-    intervals = convert_duration_to_interval(df, date_col, time_interval)
-    df['interval'] = pd.cut(df[date_col], intervals)
+    breaks = convert_duration_to_interval(df, date_col, time_interval)
+    df['interval'] = pd.cut(df[date_col], breaks)
    
     # we don't want to include any observations too close to train/test date,
     # if we haven't yet observed their outcome
-    df['interval'] = np.where(df[date_col] + lag_time > df['interval'].apply(lambda x: x.right), np.nan, df.interval)
-    
+    # if lag_time:
+    # df['interval'] = np.where(df[date_col] + lag_time > df['interval'].apply(lambda x: x.right), np.nan, df.interval)
+
+    # df['set_num'] = -1
+    # intervals = list(df.interval.unique())
+    # for i in range(0, len(intervals)):
+    #     df['set_num'] = np.where(df['interval'].loc[df['interval'] == intervals[i]], i, df.set_num)
+
     return df
 
 
@@ -220,17 +251,12 @@ def get_feature_wt(dec_tree, feature_list):
     return dict(zip(feature_list, list(dec_tree.feature_importances_)))
 
 
-def compute_eval_stats(classifier, x_data, y_data, threshold):
-    ''' Takes: classifier object, feature and target data, and
+def compute_eval_stats(classifier, y_data, pred_scores, threshold):
+    ''' Takes: classifier object, truex target data, predicted scores, 
                 prediction score threshold
         Returns: accuracy, precision, recall of predictions of classifier on x for y
     '''
 
-    if type(classifier) == sklearn.svm.classes.LinearSVC:
-        pred_scores = classifier.decision_function(x_data)[:,1]
-    else:
-        pred_scores = classifier.predict_proba(x_data)[:,1]
-    
     calc_threshold = lambda x,y: 0 if x < y else 1 
     predicted_test = np.array( [calc_threshold(score, threshold) for score in pred_scores] )
 
@@ -271,7 +297,7 @@ def draw_precision_recall_curve(classifier, x_data, y_data):
 # TEST DIFFERENT PARAMETERS
 #==============================================================================#
 
-def test_thresholds(classifier, x_data, y_data, threshold_list = []):
+def test_thresholds(classifier, y_data, pred_scores, threshold_list = []):
     ''' Takes classifier object, feature and target data, and list of score thresholds
         Returns: data frame summarizing performance for each threshold level
     '''
@@ -284,8 +310,8 @@ def test_thresholds(classifier, x_data, y_data, threshold_list = []):
 
     for t in threshold_list:
 
-        stats = compute_eval_stats(classifier, x_data, y_data, t)
-        results.append(t, [stats[0], stats[1], stats[2], stats[3], stats[4]])
+        stats = compute_eval_stats(classifier, y_data, pred_scores, t)
+        results.append([t, stats[0], stats[1], stats[2], stats[3], stats[4]])
     
     return pd.DataFrame(results, columns = cols)
 
@@ -300,7 +326,13 @@ def test_classifier_parameters(classifier_type, x_train, y_train, x_test, y_test
     for p in ParameterGrid(test_params):
 
         classifier = build_classifier(classifier_type, x_train, y_train, **p)
-        test_performance = test_thresholds(classifier, x_test, y_test, thresholds)
+
+        if type(classifier) == LinearSVC:
+            pred_scores = classifier.decision_function(x_test)
+        else:
+            pred_scores = classifier.predict_proba(x_test)[:,1]
+
+        test_performance = test_thresholds(classifier, y_test, pred_scores, thresholds)
         test_performance['params'] = str(p)
 
         results.append(test_performance)
@@ -323,6 +355,7 @@ def test_classifiers(x_train, y_train, x_test, y_test, classifier_dict = {}, thr
 
     for c in classifier_list:
 
+        print("Beginning classifier type " + c)
         test_params = classifier_dict[c] 
         performance = test_classifier_parameters(c, x_train, y_train, x_test, y_test, test_params, thresholds)
         performance['classifier'] = c
