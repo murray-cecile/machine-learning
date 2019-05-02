@@ -44,8 +44,7 @@ import graphviz
 # GLOBAL DEFAULTS
 #==============================================================================#
 
-# THRESHOLDS = [0.01, 0.02, 0.05, 0.1, 0.2, 0.3, 0.5]
-THRESHOLDS = [0.1, 0.2, 0.5, 0.75, 0.8, 0.9]
+PERCENTILES = [0.01, 0.02, 0.05, 0.1, 0.2, 0.3, 0.5]
 
 CLASSIFIERS = {
     'DecisionTree': {'max_depth': [1, 3, 5, 10, 15],
@@ -83,11 +82,9 @@ TEST_CLASSIFIERS = {
     'SVM': {'penalty': ['l2'],
             'C' : [0.1]
             },
-    'BA': {'n_estimators': [10],
-           'max_depth': [1]
+    'BA': {'n_estimators': [10]
             },
-    'GB': {'n_estimators': [10],
-            'max_depth': [1]
+    'GB': {'n_estimators': [10]
             },
     'RandomForest': {'n_estimators': [1],
                      'max_depth': [1],
@@ -252,13 +249,17 @@ def get_feature_wt(dec_tree, feature_list):
 
 
 def compute_eval_stats(classifier, y_data, pred_scores, threshold):
-    ''' Takes: classifier object, truex target data, predicted scores, 
+    ''' Takes: classifier object, true target data, predicted scores, 
                 prediction score threshold
         Returns: accuracy, precision, recall of predictions of classifier on x for y
     '''
 
-    calc_threshold = lambda x,y: 0 if x < y else 1 
-    predicted_test = np.array( [calc_threshold(score, threshold) for score in pred_scores] )
+    predicted_test = np.where(pred_scores > threshold, 1, 0)
+    
+    print(threshold)
+    print(y_data.head())
+    print(predicted_test[1:10])
+    print(pred_scores[1:10])
 
     stats = [accuracy(y_data, predicted_test),
             precision(y_data, predicted_test),
@@ -267,6 +268,25 @@ def compute_eval_stats(classifier, y_data, pred_scores, threshold):
             roc(y_data, predicted_test)]
 
     return stats
+
+
+def compute_pred_scores(classifier, x_data, rank = False):
+    ''' Takes a classifier and feature data and generates predicted scores.
+        If rank is True, then it returns rankings intead of scores.
+    '''
+
+    if type(classifier) == LinearSVC:
+        pred_scores = classifier.decision_function(x_data)
+    else:
+        pred_scores = classifier.predict_proba(x_data)[:,1]
+
+    print("scores are: ")
+    print(pred_scores[1:10])
+
+    if rank:
+        return pd.DataFrame(pred_scores).rank()[0]
+    else:
+        return pred_scores
 
 
 def draw_precision_recall_curve(classifier, x_data, y_data):
@@ -297,16 +317,13 @@ def draw_precision_recall_curve(classifier, x_data, y_data):
 # TEST DIFFERENT PARAMETERS
 #==============================================================================#
 
-def test_thresholds(classifier, y_data, pred_scores, threshold_list = []):
+def test_thresholds(classifier, y_data, pred_scores, threshold_list):
     ''' Takes classifier object, feature and target data, and list of score thresholds
         Returns: data frame summarizing performance for each threshold level
     '''
 
     results = []
-    cols = ['Threshold', 'Accuracy', 'Precision', 'Recall', 'F1', 'ROC Score']
-
-    if not threshold_list:
-        threshold_list = THRESHOLDS
+    cols = ['Threshold', 'Accuracy', 'Precision', 'Recall', 'F1', 'AUC_ROC Score']
 
     for t in threshold_list:
 
@@ -316,23 +333,26 @@ def test_thresholds(classifier, y_data, pred_scores, threshold_list = []):
     return pd.DataFrame(results, columns = cols)
 
 
-def test_classifier_parameters(classifier_type, x_train, y_train, x_test, y_test, test_params, thresholds = []):
+def test_classifier_parameters(classifier_type, x_train, y_train, x_test, y_test, test_params, percentiles = []):
     ''' Test different parameters for a given classifier
         Returns: data frame summarizing model performance scores
     '''
 
     results = []
 
+    if not percentiles:
+        percentiles = PERCENTILES
+
     for p in ParameterGrid(test_params):
 
         classifier = build_classifier(classifier_type, x_train, y_train, **p)
 
-        if type(classifier) == LinearSVC:
-            pred_scores = classifier.decision_function(x_test)
-        else:
-            pred_scores = classifier.predict_proba(x_test)[:,1]
+        ranks = compute_pred_scores(classifier, x_test, rank = True)
+        print("ranks are")
+        print(ranks[1:10])
+        rank_list = [y_test.count() - p * y_test.count() for p in percentiles]    
 
-        test_performance = test_thresholds(classifier, y_test, pred_scores, thresholds)
+        test_performance = test_thresholds(classifier, y_test, ranks, rank_list)
         test_performance['params'] = str(p)
 
         results.append(test_performance)
@@ -340,7 +360,7 @@ def test_classifier_parameters(classifier_type, x_train, y_train, x_test, y_test
     return pd.concat(results) 
  
 
-def test_classifiers(x_train, y_train, x_test, y_test, classifier_dict = {}, thresholds = []):
+def test_classifiers(x_train, y_train, x_test, y_test, classifier_dict = {}, percentiles = []):
     ''' Takes training and test data, and optionally classifier types and parameters
         and score thresholds (defaults set in globals)
 
@@ -357,7 +377,7 @@ def test_classifiers(x_train, y_train, x_test, y_test, classifier_dict = {}, thr
 
         print("Beginning classifier type " + c)
         test_params = classifier_dict[c] 
-        performance = test_classifier_parameters(c, x_train, y_train, x_test, y_test, test_params, thresholds)
+        performance = test_classifier_parameters(c, x_train, y_train, x_test, y_test, test_params, percentiles)
         performance['classifier'] = c
 
         results.append(performance)
@@ -365,7 +385,7 @@ def test_classifiers(x_train, y_train, x_test, y_test, classifier_dict = {}, thr
     return pd.concat(results)
 
 
-def test_over_time(df, features, target, intervals, classifier_dict = {}, thresholds = []):
+def test_over_time(df, features, target, intervals, classifier_dict = {}, percentiles = []):
     ''' Takes data, feature list, target variable, list of intervals, and optional
         classifier types/parameters and score thresholds
 
