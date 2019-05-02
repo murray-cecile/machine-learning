@@ -159,28 +159,26 @@ def convert_duration_to_interval(df, date_col, time_interval, time_unit = "weeks
         return
 
 
-def create_sliding_window_sets(df, date_col, feature_list, target, time_interval, lag_time):
+def create_sliding_window_sets(df, date_col, feature_list, target, time_interval):
     ''' Takes full dataframe, string name of date column, list of features, 
-        string name of target variable, number of intervals, and any lag time.
+        string name of target variable, and number of intervals.
         Returns dataframe with bins corresponding to interval membership
     '''
 
     df[date_col] = pd.to_datetime(df[date_col])
 
     breaks = convert_duration_to_interval(df, date_col, time_interval)
-    df['interval'] = pd.cut(df[date_col], breaks)
+    df['interval'] = pd.cut(df[date_col], breaks, include_lowest=True)
    
-    # we don't want to include any observations too close to train/test date,
-    # if we haven't yet observed their outcome
-    # if lag_time:
-    # df['interval'] = np.where(df[date_col] + lag_time > df['interval'].apply(lambda x: x.right), np.nan, df.interval)
-
-    # df['set_num'] = -1
-    # intervals = list(df.interval.unique())
-    # for i in range(0, len(intervals)):
-    #     df['set_num'] = np.where(df['interval'].loc[df['interval'] == intervals[i]], i, df.set_num)
-
     return df
+
+
+def get_date_intervals(df, interval_col):
+    ''' Takes a dateframe that has a column with a pandas interval object denoting a time window
+        Returns: list of unique windows sorted in chronological order
+    '''
+
+    return list(pd.DataFrame(df.interval.unique()).dropna().sort_values(0)[0])
 
 
 def create_expanding_window_sets(df, date_col, feature_list, target, time_interval, lag_time):
@@ -276,10 +274,10 @@ def compute_pred_scores(classifier, x_data, rank = False):
         If rank is True, then it returns rankings intead of scores.
     '''
 
-    x_data = shuffle(x_data)
+    # won't matter if rank=False, necessary if True because rank()
+    # will otherwise assign based on order in the dataframe
+    x_data = shuffle(x_data) 
 
-    print(type(classifier))
-    print(isinstance(classifier, LinearSVC))
     if isinstance(classifier, LinearSVC):
         pred_scores = classifier.decision_function(x_data)
     else:
@@ -298,8 +296,6 @@ def draw_precision_recall_curve(classifier, x_data, y_data):
         Reference: code drawn from Scikit-learn documentation, https://bit.ly/2WaYP2I
     '''
 
-    print(type(classifier))
-    print(isinstance(classifier, LinearSVC))
     if isinstance(classifier, LinearSVC):
         pred_scores = classifier.decision_function(x_data)
     else:
@@ -362,8 +358,6 @@ def test_classifier_parameters(classifier_type, x_train, y_train, x_test, y_test
         classifier = build_classifier(classifier_type, x_train, y_train, **p)
 
         ranks = compute_pred_scores(classifier, x_test, rank = True)
-        print("ranks are")
-        print(ranks[1:10])
         rank_list = [y_test.count() - p * y_test.count() for p in percentiles]    
 
         test_performance = test_thresholds(classifier, y_test, ranks, rank_list)
@@ -399,19 +393,36 @@ def test_classifiers(x_train, y_train, x_test, y_test, classifier_dict = {}, per
     return pd.concat(results)
 
 
-def test_over_time(df, features, target, intervals, classifier_dict = {}, percentiles = []):
-    ''' Takes data, feature list, target variable, list of intervals, and optional
+def test_over_time(df, features, target, interval_col, date_col, lag_time = None, classifier_dict = {}, percentiles = []):
+    ''' Takes data, feature list, target variable, date variable, any lag time, and optional
         classifier types/parameters and score thresholds
+        Creates training and test sets based on the intervals in the data and any lag time
 
         Returns: data frame summarizing performance across all train/test windows
     '''
 
     results = []
 
-    for i in intervals:
-        pass
+    if not lag_time:
+        lag_time = datetime.timedelta(days=0)
 
-    return
+    interval_list = get_date_intervals(df, interval_col)
+
+    for i in range(0, len(interval_list) - 1):
+
+        train_end_date = interval_list[i].right - lag_time
+        test_start_date = interval_list[i + 1].left
+        
+        x_train = proj[features].loc[proj[date_col] < train_end_date]
+        y_train = proj[target].loc[proj[date_col] < train_end_date]
+        x_test = proj[features].loc[proj[date_col] >= test_start_date]
+        y_test = proj[target].loc[proj[date_col] < test_start_date]
+
+        performance = test_classifiers(x_train, y_train, x_test, y_test, classifier_dict, percentiles)
+        performance['Train/Test Split ID'] = i
+        results.append(performance)
+
+    return pd.concat(results)
 
 #==============================================================================#
 # VISUALIZATION TOOLS
