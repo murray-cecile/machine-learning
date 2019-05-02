@@ -11,7 +11,6 @@ import pandas as pd
 import seaborn as sns
 import plotnine as p9
 
-
 #==============================================================================#
 # READ IN DATA
 #==============================================================================#
@@ -43,7 +42,7 @@ def find_cols_with_missing(df):
 
 
 # some pre-processing to convert numeric NA's to the median of the column
-def replace_missing(df, *args, method = 'mean'):
+def replace_missing(df, method = 'mean', *args):
     ''' Takes data frame, replacement method, and arbitrary column names;
         replaces missing values using specified method;
         returns data frame '''
@@ -55,6 +54,10 @@ def replace_missing(df, *args, method = 'mean'):
     elif method == "mean":
         for c in list(args):
             df[c] = df[c].fillna(df[c].mean())
+
+    elif method == "zero":
+        for c in list(args):
+            df[c] = df[c].fillna(0)
 
     else:
         pass

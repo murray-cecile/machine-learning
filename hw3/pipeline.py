@@ -38,7 +38,9 @@ from sklearn.metrics import f1_score as f1
 from sklearn.metrics import roc_auc_score as roc
 from sklearn.metrics import precision_recall_curve 
 from sklearn.utils.fixes import signature
+from sklearn.utils import shuffle
 import graphviz 
+
 
 #==============================================================================#
 # GLOBAL DEFAULTS
@@ -55,8 +57,7 @@ CLASSIFIERS = {
     'LogisticRegression': {'penalty': ['l1', 'l2'],
                             'C': [0.1, 1, 10, 100]
                             },
-    'SVM': {'penalty': ['l1', 'l2'],
-            'C' : [0.1, 1, 10, 100]
+    'SVM': {'C' : [0.1, 1, 10, 100]
             },
     'BA': {'n_estimators': [10, 25, 100],
            'max_depth': [1, 3, 5, 10, 15]
@@ -79,8 +80,7 @@ TEST_CLASSIFIERS = {
     'LogisticRegression': {'penalty': ['l1'],
                             'C': [0.1]
                             },
-    'SVM': {'penalty': ['l2'],
-            'C' : [0.1]
+    'SVM': {'C' : [0.1]
             },
     'BA': {'n_estimators': [10]
             },
@@ -256,10 +256,11 @@ def compute_eval_stats(classifier, y_data, pred_scores, threshold):
 
     predicted_test = np.where(pred_scores > threshold, 1, 0)
     
-    print(threshold)
-    print(y_data.head())
-    print(predicted_test[1:10])
-    print(pred_scores[1:10])
+    # print(threshold)
+    # print(predicted_test.sum())
+    # print(predicted_test[1:10])
+    # print("num unique ranks: ", pd.DataFrame(pred_scores)[0].unique().shape)
+    # print(pred_scores[1:10])
 
     stats = [accuracy(y_data, predicted_test),
             precision(y_data, predicted_test),
@@ -275,16 +276,17 @@ def compute_pred_scores(classifier, x_data, rank = False):
         If rank is True, then it returns rankings intead of scores.
     '''
 
-    if type(classifier) == LinearSVC:
+    x_data = shuffle(x_data)
+
+    print(type(classifier))
+    print(isinstance(classifier, LinearSVC))
+    if isinstance(classifier, LinearSVC):
         pred_scores = classifier.decision_function(x_data)
     else:
         pred_scores = classifier.predict_proba(x_data)[:,1]
 
-    print("scores are: ")
-    print(pred_scores[1:10])
-
     if rank:
-        return pd.DataFrame(pred_scores).rank()[0]
+        return pd.DataFrame(pred_scores).rank(method='first')[0]
     else:
         return pred_scores
 
@@ -296,7 +298,13 @@ def draw_precision_recall_curve(classifier, x_data, y_data):
         Reference: code drawn from Scikit-learn documentation, https://bit.ly/2WaYP2I
     '''
 
-    pred_scores = classifier.predict_proba(x_data)[:,1]
+    print(type(classifier))
+    print(isinstance(classifier, LinearSVC))
+    if isinstance(classifier, LinearSVC):
+        pred_scores = classifier.decision_function(x_data)
+    else:
+        pred_scores = classifier.predict_proba(x_data)[:,1]
+
     precision, recall, thresholds = precision_recall_curve(y_data, pred_scores)
 
     step_kwargs = ({'step': 'post'}
@@ -317,20 +325,26 @@ def draw_precision_recall_curve(classifier, x_data, y_data):
 # TEST DIFFERENT PARAMETERS
 #==============================================================================#
 
-def test_thresholds(classifier, y_data, pred_scores, threshold_list):
+def test_thresholds(classifier, y_data, pred_scores, threshold_list, labels = []):
     ''' Takes classifier object, feature and target data, and list of score thresholds
         Returns: data frame summarizing performance for each threshold level
     '''
 
     results = []
-    cols = ['Threshold', 'Accuracy', 'Precision', 'Recall', 'F1', 'AUC_ROC Score']
+    cols = ['Accuracy', 'Precision', 'Recall', 'F1', 'AUC_ROC Score']
 
     for t in threshold_list:
 
         stats = compute_eval_stats(classifier, y_data, pred_scores, t)
-        results.append([t, stats[0], stats[1], stats[2], stats[3], stats[4]])
+        results.append([stats[0], stats[1], stats[2], stats[3], stats[4]])
     
-    return pd.DataFrame(results, columns = cols)
+    if not labels:
+        labels = threshold_list
+    
+    results = pd.DataFrame(results, columns = cols)
+    results['Threshold'] = labels
+    
+    return results
 
 
 def test_classifier_parameters(classifier_type, x_train, y_train, x_test, y_test, test_params, percentiles = []):
