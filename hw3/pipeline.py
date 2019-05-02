@@ -30,7 +30,7 @@ from sklearn.ensemble import BaggingClassifier, RandomForestClassifier, Gradient
 
 # evaluation methods
 from sklearn.model_selection import train_test_split
-from sklearn.model_selection import TimeSeriesSplit
+from sklearn.model_selection import ParameterGrid
 from sklearn.metrics import accuracy_score as accuracy
 from sklearn.metrics import precision_score as precision
 from sklearn.metrics import recall_score as recall
@@ -39,6 +39,36 @@ from sklearn.metrics import roc_auc_score as roc
 from sklearn.metrics import precision_recall_curve 
 from sklearn.utils.fixes import signature
 import graphviz 
+
+#==============================================================================#
+# GLOBAL DEFAULTS
+#==============================================================================#
+
+THRESHOLDS = [0.01, 0.02, 0.05, 0.1, 0.2, 0.3, 0.5]
+
+CLASSIFIERS = {
+    'DecisionTree': {'max_depth': [1, 3, 5, 10, 15],
+                     'criterion': ['gini', 'entropy']
+                     },
+    'KNN': {'k' = [3, 5, 10, 15, 25, 50]
+            },
+    'LogisticRegression': {'penalty': ['l1', 'l2'],
+                            'C': [0.1, 1, 10, 100]
+                            },
+    'SVM': {'penalty': ['l1', 'l2'],
+            'C' = [0.1, 1, 10, 100]
+            },
+    'BA': {'n_estimators': [10, 25, 100],
+           'max_depth': [1, 3, 5, 10, 15]
+            },
+    'GB': {'n_estimators': [10, 25, 100],
+            'max_depth': [1, 3, 5, 10, 15]
+            },
+    'RandomForest': {'n_estimators': [1, 10, 50, 100],
+                     'max_depth': [1, 3, 5, 10, 15],
+                     'criterion': ['gini', 'entropy']
+                     }
+}
 
 
 #==============================================================================#
@@ -134,14 +164,13 @@ def create_expanding_window_sets(df, date_col, feature_list, target, time_interv
     df[date_col] = pd.to_datetime(df[date_col])
 
     breaks = convert_duration_to_interval(df, date_col, time_interval)
-    intervals = [Interval(df[date_col].min(), i) for b in breaks]
+    intervals = [pd.Interval(breaks[0], b) for b in breaks[1:]]
 
-    df['interval'] = pd.cut(df[date_col], intervals)
-   
-    # we don't want to include any observations too close to train/test date,
-    # if we haven't yet observed their outcome
-    df['interval'] = np.where(df[date_col] + lag_time > df['interval'].apply(lambda x: x.right), np.nan, df.interval)
-    
+    for i in range(0, len(intervals)):
+        int_name = 'interval_' + str(i)
+        df[int_name] = df[date_col].apply(lambda x: x in intervals[i])
+        df[int_name] = np.where(df[date_col] + lag_time > intervals[i].right, np.nan, df[int_name])
+       
     return df
 
 
@@ -166,29 +195,19 @@ def build_classifier(classifier_type, x_train, y_train, **params):
     elif classifier_type == "SVM":
         return LinearSVC(**params).fit(x_train, y_train)
 
-    else:
-        print("Classifier not supported.")
-        return 
-
-
-def build_ensemble(ensemble_type, classifier, x_train, y_train, **params):
-    ''' Takes string designating which ensemble to use, classifier object, 
-        training data, and optional keyword parameters for ensemble
-        Returns trained classifier object
-    '''
-
-    if ensemble_type == "bag":
+    elif classifier_type == "BA":
         return BaggingClassifier(**params).fit(x_train, y_train)
 
-    elif ensemble_type == "boost":
+    elif classifer == "GB":
         return GradientBoostingClassifier(**params).fit(x_train, y_train) 
 
-    elif ensemble_type == "RandomForest":
+    elif classifier_type == "RandomForest":
         return RandomForestClassifier(**params).fit(x_train, y_train)
 
     else:
-        print("Ensemble not supported")
+        print("Classifier not supported")
         return
+
 
 #==============================================================================#
 # EVALUATE CLASSIFIERS
@@ -252,51 +271,80 @@ def draw_precision_recall_curve(classifier, x_data, y_data):
 # TEST DIFFERENT PARAMETERS
 #==============================================================================#
 
-def test_thresholds(classifier, x_data, y_data, threshold_list):
+def test_thresholds(classifier, x_data, y_data, threshold_list = []):
     ''' Takes classifier object, feature and target data, and list of score thresholds
         Returns: data frame summarizing performance for each threshold level
     '''
 
     results = []
-    cols = ['Accuracy', 'Precision', 'Recall', 'F1', 'ROC Score']
+    cols = ['Threshold', 'Accuracy', 'Precision', 'Recall', 'F1', 'ROC Score']
+
+    if not threshold_list:
+        threshold_list = THRESHOLDS
 
     for t in threshold_list:
 
         stats = compute_eval_stats(classifier, x_data, y_data, t)
-        results.append([stats[0], stats[1], stats[2], stats[3], stats[4]])
+        results.append(t, [stats[0], stats[1], stats[2], stats[3], stats[4]])
     
     return pd.DataFrame(results, columns = cols)
 
 
-def test_classifier_parameters(classifier_type, x_train, y_train, x_test, y_test, threshold, test_params, **fixed_params):
+def test_classifier_parameters(classifier_type, x_train, y_train, x_test, y_test, test_params, thresholds = []):
     ''' Test different parameters for a given classifier
         Returns: data frame summarizing model performance scores
     '''
 
     results = []
 
-    for p in test_params:
+    for p in ParameterGrid(test_params):
 
-        classifier = build_classifier(classifier, x_train, y_train, fixed_params)
+        classifier = build_classifier(classifier_type, x_train, y_train, **p)
+        test_performance = test_thresholds(classifier, x_test, y_test, thresholds)
+        test_performance['params'] = str(p)
 
-        train_stats = compute_eval_stats(classifier, x_train, y_train, threshold)
-        test_stats = compute_eval_stats(classifier, x_test, y_test, threshold)
+        results.append(test_performance)
 
-        results.append([c, d, train_stats[0],
-                                test_stats[0],
-                                test_stats[1],
-                                test_stats[2],
-                                test_stats[3]])
+    return pd.concat(results) 
+ 
+
+def test_classifiers(x_train, y_train, x_test, y_test, classifier_dict = {}, thresholds = []):
+    ''' Takes training and test data, and optionally classifier types and parameters
+        and score thresholds (defaults set in globals)
+
+        Returns: data frame summarizing performance of all combinations
+    '''
+
+    if not classifier_dict:
+        classifier_dict = CLASSIFIERS
+    classifier_list = classifier_dict.keys()
+
+    results = []
+
+    for c in classifier_list:
+
+        test_params = classifier_dict[c] 
+        performance = test_classifier_parameters(c, x_train, y_train, x_test, y_test, test_params, thresholds)
+        performance['classifier'] = c
+
+        results.append(performance)
     
-    return pd.DataFrame(results, columns = ['Split Criterion', 'Depth',
-                                             'Train Accuracy',
-                                             'Test Accuracy', 
-                                             'Test Precision',
-                                             'Test Recall',
-                                             'Test F1'])
+    return pd.concat(results)
 
 
-# def test_classifiers(x_train, y_train, x_test, y_test, threshold)
+def test_over_time(df, features, target, intervals, classifier_dict = {}, thresholds = []):
+    ''' Takes data, feature list, target variable, list of intervals, and optional
+        classifier types/parameters and score thresholds
+
+        Returns: data frame summarizing performance across all train/test windows
+    '''
+
+    results = []
+
+    for i in intervals:
+        pass
+
+    return
 
 #==============================================================================#
 # VISUALIZATION TOOLS
