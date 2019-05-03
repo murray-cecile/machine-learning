@@ -108,3 +108,13 @@ def make_cat_dummy(df, cols):
     '''Convert categorical variable or list of categorical variables into binary '''
 
     return pd.get_dummies(df, dummy_na=True, columns=cols)
+
+#==============================================================================#
+# MISC
+#==============================================================================#
+
+def move_last_col_to_front(df):
+    ''' Takes the rightmost column in a data frame and makes it the left-most '''
+
+    cols = list(df.columns)
+    return df[[cols[-1]] + cols[:-1]]

@@ -52,21 +52,19 @@ CLASSIFIERS = {
     'DecisionTree': {'max_depth': [1, 3, 5, 10, 15],
                      'criterion': ['gini', 'entropy']
                      },
-    'KNN': {'n_neighbors' : [3, 5, 10, 15, 25, 50],
-            'weights': ['uniform', 'distance']},
+    'KNN': {'n_neighbors' : [10, 25, 50],
+            'weights': ['uniform']},
     'LogisticRegression': {'penalty': ['l1', 'l2'],
                             'C': [0.1, 1, 10, 100]
                             },
     'SVM': {'C' : [0.1, 1, 10, 100]
             },
-    'BA': {'n_estimators': [10, 25, 100],
-           'max_depth': [1, 3, 5, 10, 15]
+    'BA': {'n_estimators': [10, 25, 50]
             },
-    'GB': {'n_estimators': [10, 25, 100],
-            'max_depth': [1, 3, 5, 10, 15]
+    'GB': {'n_estimators': [10, 25, 50]   
             },
-    'RandomForest': {'n_estimators': [1, 10, 50, 100],
-                     'max_depth': [1, 3, 5, 10, 15],
+    'RandomForest': {'n_estimators': [10, 50, 100],
+                     'max_depth': [1, 5, 10, 15],
                      'criterion': ['gini', 'entropy']
                      }
 }
@@ -75,8 +73,8 @@ TEST_CLASSIFIERS = {
     'DecisionTree': {'max_depth': [1],
                      'criterion': ['gini']
                      },
-    'KNN': {'n_neighbors' : [3],
-            'weights': ['uniform']},
+    # 'KNN': {'n_neighbors' : [5],
+    #         'weights': ['uniform']},
     'LogisticRegression': {'penalty': ['l1'],
                             'C': [0.1]
                             },
@@ -178,7 +176,7 @@ def get_date_intervals(df, interval_col):
         Returns: list of unique windows sorted in chronological order
     '''
 
-    return list(pd.DataFrame(df.interval.unique()).dropna().sort_values(0)[0])
+    return list(pd.DataFrame(list(df['interval'].unique())).dropna().sort_values(0)[0])
 
 
 def create_expanding_window_sets(df, date_col, feature_list, target, time_interval, lag_time):
@@ -224,7 +222,7 @@ def build_classifier(classifier_type, x_train, y_train, **params):
     elif classifier_type == "BA":
         return BaggingClassifier(**params).fit(x_train, y_train)
 
-    elif classifer == "GB":
+    elif classifier_type == "GB":
         return GradientBoostingClassifier(**params).fit(x_train, y_train) 
 
     elif classifier_type == "RandomForest":
@@ -321,6 +319,7 @@ def draw_precision_recall_curve(classifier, x_data, y_data):
 # TEST DIFFERENT PARAMETERS
 #==============================================================================#
 
+
 def test_thresholds(classifier, y_data, pred_scores, threshold_list, labels = []):
     ''' Takes classifier object, feature and target data, and list of score thresholds
         Returns: data frame summarizing performance for each threshold level
@@ -340,7 +339,7 @@ def test_thresholds(classifier, y_data, pred_scores, threshold_list, labels = []
     results = pd.DataFrame(results, columns = cols)
     results['Threshold'] = labels
     
-    return results
+    return utils.move_last_col_to_front(results)
 
 
 def test_classifier_parameters(classifier_type, x_train, y_train, x_test, y_test, test_params, percentiles = []):
@@ -360,15 +359,16 @@ def test_classifier_parameters(classifier_type, x_train, y_train, x_test, y_test
         ranks = compute_pred_scores(classifier, x_test, rank = True)
         rank_list = [y_test.count() - p * y_test.count() for p in percentiles]    
 
-        test_performance = test_thresholds(classifier, y_test, ranks, rank_list)
+        test_performance = test_thresholds(classifier, y_test, ranks, rank_list, labels = percentiles)
         test_performance['params'] = str(p)
+        test_performance = utils.move_last_col_to_front(test_performance)
 
         results.append(test_performance)
 
     return pd.concat(results) 
  
 
-def test_classifiers(x_train, y_train, x_test, y_test, classifier_dict = {}, percentiles = []):
+def test_classifiers(x_train, y_train, x_test, y_test, to_file, classifier_dict = {}, percentiles = []):
     ''' Takes training and test data, and optionally classifier types and parameters
         and score thresholds (defaults set in globals)
 
@@ -387,13 +387,20 @@ def test_classifiers(x_train, y_train, x_test, y_test, classifier_dict = {}, per
         test_params = classifier_dict[c] 
         performance = test_classifier_parameters(c, x_train, y_train, x_test, y_test, test_params, percentiles)
         performance['classifier'] = c
+        performance = utils.move_last_col_to_front(performance)
 
         results.append(performance)
     
+    if to_file:
+        pd.concat(results).to_csv('output/' + to_file, mode = 'a')
+    else:
+        print(pd.concat(results))
+
     return pd.concat(results)
 
 
-def test_over_time(df, features, target, interval_col, date_col, lag_time = None, classifier_dict = {}, percentiles = []):
+def test_over_time(df, features, target, interval_col, date_col, to_file = '', lag_time = None,
+                     classifier_dict = {}, percentiles = []):
     ''' Takes data, feature list, target variable, date variable, any lag time, and optional
         classifier types/parameters and score thresholds
         Creates training and test sets based on the intervals in the data and any lag time
@@ -413,14 +420,19 @@ def test_over_time(df, features, target, interval_col, date_col, lag_time = None
         train_end_date = interval_list[i].right - lag_time
         test_start_date = interval_list[i + 1].left
         
-        x_train = proj[features].loc[proj[date_col] < train_end_date]
-        y_train = proj[target].loc[proj[date_col] < train_end_date]
-        x_test = proj[features].loc[proj[date_col] >= test_start_date]
-        y_test = proj[target].loc[proj[date_col] < test_start_date]
+        x_train = df[features].loc[df[date_col] < train_end_date]
+        y_train = df[target].loc[df[date_col] < train_end_date]
+        x_test = df[features].loc[df[date_col] >= test_start_date]
+        y_test = df[target].loc[df[date_col] >= test_start_date]
 
-        performance = test_classifiers(x_train, y_train, x_test, y_test, classifier_dict, percentiles)
+        performance = test_classifiers(x_train, y_train, x_test, y_test, to_file, classifier_dict, percentiles)
         performance['Train/Test Split ID'] = i
+        performance = utils.move_last_col_to_front(performance)
+
         results.append(performance)
+
+    if to_file:
+        pd.concat(results).to_csv('output/' + to_file, mode = 'w')    
 
     return pd.concat(results)
 
