@@ -29,8 +29,6 @@ def read_data(filename, file_type):
         print("filetype not supported")
         return
 
-
-
 #==============================================================================#
 # PROCESS DATA
 #==============================================================================#
@@ -79,6 +77,23 @@ def convert_to_boolean(df, cols, true_val, false_val):
         df[col] = np.where(df[col] == true_val, True, False)
     
     return df
+
+
+def transform_vars_safely(df, func, date_col, id_col, start_date, end_date, *func_args):
+    '''Takes: data frame, location of date and unique ID column,
+              variable transformation function, and start/end dates
+
+       Returns: data frame where observations within specified dates have been
+        transformed by provided function, only with regard to other observations
+        within those dates (so variables are transformed without leakage)
+    '''
+
+    # take subset of main data frame within specified dates and apply func
+    subdf = df.loc[(df[date_col] >= start_date) & (df[date_col] <= end_date)]
+    subdf = func(subdf, *func_args)
+
+    # then replace the rows in the main dataframe with the transformed rows
+    return pd.concat([df[~df['projectid'].isin(subdf['projectid'])], subdf])
 
 #==============================================================================#
 # GENERATE FEATURES
