@@ -16,9 +16,9 @@ import matplotlib.pyplot as plt
 from sklearn import preprocessing
 
 # my own library 
-import utils
-import exploration as exp
-import pipeline as pipe
+import pipeline.utils
+import pipeline.exploration as exp
+import pipeline.modeling as pipe
 
 
 def convert_dates(df):
