@@ -4,6 +4,8 @@
 #
 #   REFERENCES:
 #   CAPP 30254 labs: https://github.com/dssg/MLforPublicPolicy/blob/master/labs/2019/
+#   Rayid Ghani Magic Loops repo: https://github.com/rayidghani/magicloops
+#   Fellow CAPP student Jonathan Tan's approach for the config.yaml
 #
 # Cecile Murray
 #==============================================================================#
@@ -40,56 +42,6 @@ from sklearn.metrics import precision_recall_curve
 from sklearn.utils.fixes import signature
 from sklearn.utils import shuffle
 import graphviz 
-
-
-#==============================================================================#
-# GLOBAL DEFAULTS
-#==============================================================================#
-
-PERCENTILES = [0.01, 0.02, 0.05, 0.1, 0.2, 0.3, 0.5]
-
-CLASSIFIERS = {
-    'DecisionTree': {'max_depth': [1, 3, 5, 10, 15],
-                     'criterion': ['gini', 'entropy']
-                     },
-    'KNN': {'n_neighbors' : [10, 25, 50],
-            'weights': ['uniform']},
-    'LogisticRegression': {'penalty': ['l1', 'l2'],
-                            'C': [0.1, 1, 10, 100]
-                            },
-    'SVM': {'C' : [0.1, 1, 10, 100]
-            },
-    'BA': {'n_estimators': [10, 25, 50]
-            },
-    'GB': {'n_estimators': [10, 25, 50]   
-            },
-    'RandomForest': {'n_estimators': [10, 50, 100],
-                     'max_depth': [1, 5, 10, 15],
-                     'criterion': ['gini', 'entropy']
-                     }
-}
-
-TEST_CLASSIFIERS = {
-    'DecisionTree': {'max_depth': [1],
-                     'criterion': ['gini']
-                     },
-    # 'KNN': {'n_neighbors' : [5],
-    #         'weights': ['uniform']},
-    'LogisticRegression': {'penalty': ['l1'],
-                            'C': [0.1]
-                            },
-    'SVM': {'C' : [0.1]
-            },
-    'BA': {'n_estimators': [10]
-            },
-    'GB': {'n_estimators': [10]
-            },
-    'RandomForest': {'n_estimators': [1],
-                     'max_depth': [1],
-                     'criterion': ['gini']
-                     }
-}
-
 
 #==============================================================================#
 # BUILD TRAINING AND TEST SETS
@@ -244,13 +196,13 @@ def get_feature_wt(dec_tree, feature_list):
     return dict(zip(feature_list, list(dec_tree.feature_importances_)))
 
 
-def compute_eval_stats(classifier, y_data, pred_scores, threshold):
-    ''' Takes: classifier object, true target data, predicted scores, 
-                prediction score threshold
+def compute_eval_stats(classifier, y_data, rankings, threshold):
+    ''' Takes: classifier object, true target data, predicted score rankings, 
+                ranking threshold cutoff
         Returns: accuracy, precision, recall of predictions of classifier on x for y
     '''
 
-    predicted_test = np.where(pred_scores > threshold, 1, 0)
+    predicted_test = np.where(rankings > threshold, 1, 0)
     
     # print(threshold)
     # print(predicted_test.sum())
@@ -267,13 +219,11 @@ def compute_eval_stats(classifier, y_data, pred_scores, threshold):
     return stats
 
 
-def compute_pred_scores(classifier, x_data, rank = False):
+def compute_pred_scores(classifier, x_data):
     ''' Takes a classifier and feature data and generates predicted scores.
         If rank is True, then it returns rankings intead of scores.
     '''
 
-    # won't matter if rank=False, necessary if True because rank()
-    # will otherwise assign based on order in the dataframe
     x_data = shuffle(x_data) 
 
     if isinstance(classifier, LinearSVC):
@@ -281,10 +231,8 @@ def compute_pred_scores(classifier, x_data, rank = False):
     else:
         pred_scores = classifier.predict_proba(x_data)[:,1]
 
-    if rank:
-        return pd.DataFrame(pred_scores).rank(method='first')[0]
-    else:
-        return pred_scores
+    return pd.DataFrame(pred_scores).rank(method='first')[0]
+    
 
 
 def draw_precision_recall_curve(classifier, x_data, y_data):
@@ -331,7 +279,7 @@ def test_thresholds(classifier, y_data, pred_scores, threshold_list, labels = []
     for t in threshold_list:
 
         stats = compute_eval_stats(classifier, y_data, pred_scores, t)
-        results.append([stats[0], stats[1], stats[2], stats[3], stats[4]])
+        results.append([*stats])
     
     if not labels:
         labels = threshold_list
@@ -356,7 +304,7 @@ def test_classifier_parameters(classifier_type, x_train, y_train, x_test, y_test
 
         classifier = build_classifier(classifier_type, x_train, y_train, **p)
 
-        ranks = compute_pred_scores(classifier, x_test, rank = True)
+        ranks = compute_pred_scores(classifier, x_test)
         rank_list = [y_test.count() - p * y_test.count() for p in percentiles]    
 
         test_performance = test_thresholds(classifier, y_test, ranks, rank_list, labels = percentiles)

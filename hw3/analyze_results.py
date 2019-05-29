@@ -5,19 +5,8 @@
 # Cecile Murray
 #==============================================================================#
 
-# basic dependencies
-import datetime
-import numpy as np
-import pandas as pd 
-import seaborn as sns
-import plotnine as p9
-import matplotlib.pyplot as plt
-from sklearn import preprocessing
 
-# my own libraries of useful functions
-import utils
-import exploration as exp
-import pipeline as pipe
+import pandas as pd 
 
 if __name__ == "__main__":
     

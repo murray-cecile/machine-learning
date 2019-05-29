@@ -6,6 +6,7 @@
 #==============================================================================#
 
 # basic dependencies
+import yaml
 import datetime
 import numpy as np
 import pandas as pd 
@@ -14,7 +15,7 @@ import plotnine as p9
 import matplotlib.pyplot as plt
 from sklearn import preprocessing
 
-# my own library of useful functions
+# my own library 
 import utils
 import exploration as exp
 import pipeline as pipe
@@ -46,22 +47,22 @@ def prepare_data(df):
                         'resource_type', 
                         'poverty_level',
                         'grade_level']
-    proj = utils.make_cat_dummy(projraw, categorical_list)
+    df = utils.make_cat_dummy(df, categorical_list)
 
     # create major city dummy for biggest cities
     big_cities = ['Los Angeles', 'Chicago', 'Houston', 'Brooklyn', 'Bronx', 'New York']
-    proj['in_big_city'] = np.where(proj['school_city'].isin(big_cities), 1, 0)
+    df['in_big_city'] = np.where(df['school_city'].isin(big_cities), 1, 0)
 
     # create dummies for female teacher and teacher with doctorate
-    proj['teacher_is_female'] = np.where(proj['teacher_prefix'].isin(['Mrs.', 'Ms.']), True, False)
-    proj['teacher_is_dr'] = np.where(proj['teacher_prefix'] == 'Dr.', True, False)
+    df['teacher_is_female'] = np.where(df['teacher_prefix'].isin(['Mrs.', 'Ms.']), True, False)
+    df['teacher_is_dr'] = np.where(df['teacher_prefix'] == 'Dr.', True, False)
 
     # replace string true/false with boolean values
-    proj = utils.convert_to_boolean(proj, ['school_charter',
+    df = utils.convert_to_boolean(df, ['school_charter',
                                         'school_magnet',
                                         'eligible_double_your_impact_match'], 't', 'f')
 
-    return proj
+    return df
 
 
 def normalizer_func(df):
@@ -76,62 +77,71 @@ def normalizer_func(df):
     return df
 
 
-if __name__ == "__main__":
+def run_models(config):
 
-    # read data in    
-    projraw = utils.read_data('projects_2012_2013', 'csv')
+    with open(config, 'r') as f:
+        config = yaml.safe_load(f.read())
 
-    # convert date fields and label target variable
-    proj = convert_dates(projraw)
+    # read in raw data
+    raw_df = utils.read_data(config['raw_data_file'], 'csv')
 
-    # select features by set difference
-    not_feature_cols = ['teacher_acctid',
-                    'schoolid',
-                    'school_ncesid',
-                    'school_latitude', 
-                    'school_longitude',
-                    'school_district',
-                    'school_county',
-                    'school_city',
-                    'projectid',
-                    'teacher_prefix',
-                    'date_posted',
-                    'datefullyfunded',
-                    'not_funded',
-                    'interval',
-                    'bins',
-                    'students_reached',
-                   'total_price_including_optional_support']
-    features = list(set(proj.columns).difference(not_feature_cols))
+    # convert date fields and generate target variable
+    df = convert_dates(raw_df)
+
+    # generate list of features
+    not_feature_cols = config['cols_to_exclude']
+    features = list(set(df.columns).difference(not_feature_cols))
 
     # create training and testing sets: expanding window cross-validation
-    proj = pipe.create_sliding_window_sets(projraw,
-                                            'date_posted',
-                                            features,
-                                            'not_funded',
-                                            26)
+    df = pipe.create_sliding_window_sets(df,
+                                        'date_posted',
+                                        features,
+                                        'not_funded',
+                                        26)
 
     # clean the data (operations affect only each row in isolation)
-    proj = prepare_data(projraw)
+    df = prepare_data(df)
 
-    # loop over intervals and perform normalizations
-    for i in pipe.get_date_intervals(proj, 'interval'):
-        proj = utils.transform_vars_safely(proj,
+    # loop over intervals: perform normalizations/interpolations/discretization, make dummies
+    for i in pipe.get_date_intervals(df, 'interval'):
+        df = utils.transform_vars_safely(df,
                                             normalizer_func,
                                             'date_posted',
                                             'projectid',
                                             i.left,
                                             i.right)
 
-    # proj.drop(columns = not_feature_cols)
-    features = list(set(proj.columns).difference(not_feature_cols))
+    # update feature list after feature transformation
+    features = list(set(df.columns).difference(not_feature_cols))
 
-    # run all 165 models across 7 thresholds
-    pipe.test_over_time(proj,
-                        features,
-                        'not_funded', 
-                        'interval', 
-                        'date_posted', 
-                        lag_time=datetime.timedelta(days=60),
-                        to_file = 'revised_test_run.csv',
-                        classifier_dict = pipe.TEST_CLASSIFIERS)
+    # run all models across 7 thresholds
+    results = pipe.test_over_time(df,
+                                features,
+                                'not_funded', 
+                                'interval', 
+                                'date_posted', 
+                                lag_time=datetime.timedelta(days=60),
+                                to_file = config['results_file'],
+                                classifier_dict = config[config['MODEL_GRID']],
+                                percentiles = config['PERCENTILES'])
+
+
+def analyze_results(thresh = None):
+
+    # read in model performance results
+    results = pd.read_csv(config['results_file'])
+
+    # segment to just the 165 where the threhold was 5%
+    if thresh:
+        results = results.loc[results['Threshold'] == thresh]
+
+    # Create table showing precision, recall, and accuracy 
+    metrics = ['classifier', 'params', 'Train/Test Split ID', 'Precision', 'Recall', 'Accuracy', 'AUC_ROC Score']
+    results[metrics].groupby(['classifier', 'params', 'Train/Test Split ID']).mean().to_csv('output/Memo_Table.csv')
+
+    return results, metrics
+
+if __name__ == "__main__":
+
+    run_models("config.yml")
+    results, metrics = analyze_results(thresh = 0.05)
