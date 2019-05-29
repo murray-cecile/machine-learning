@@ -120,7 +120,7 @@ def create_sliding_window_sets(df, date_col, feature_list, target, time_interval
     breaks = convert_duration_to_interval(df, date_col, time_interval)
     df['interval'] = pd.cut(df[date_col], breaks, include_lowest=True)
    
-    return df
+    return df  
 
 
 def get_date_intervals(df, interval_col):
@@ -267,14 +267,24 @@ def draw_precision_recall_curve(classifier, x_data, y_data):
 # TEST DIFFERENT PARAMETERS
 #==============================================================================#
 
+def make_eval_colnames(k_list):
+    ''' Takes: a list of K values for evaluation 
+        Returns: a list of column names for the resulting dataframe of metrics
+    '''
 
-def test_thresholds(classifier, y_data, pred_scores, threshold_list, labels = []):
+    base_cols = ['Accuracy', 'Precision', 'Recall', 'F1', 'AUC_ROC Score']
+    
+    return list(map(lambda x, k: x + " at k=" + k, base_cols * k, k_list))
+
+
+
+def test_thresholds(classifier, y_data, pred_scores, threshold_list, k_list = PERCENTILES, labels = []):
     ''' Takes classifier object, feature and target data, and list of score thresholds
         Returns: data frame summarizing performance for each threshold level
     '''
 
     results = []
-    cols = ['Accuracy', 'Precision', 'Recall', 'F1', 'AUC_ROC Score']
+    
 
     for t in threshold_list:
 
@@ -284,6 +294,7 @@ def test_thresholds(classifier, y_data, pred_scores, threshold_list, labels = []
     if not labels:
         labels = threshold_list
     
+    cols = make_eval_colnames(k_list)
     results = pd.DataFrame(results, columns = cols)
     results['Threshold'] = labels
     
