@@ -15,8 +15,8 @@ import plotnine as p9
 import matplotlib.pyplot as plt
 from sklearn import preprocessing
 
-# my own library 
-import pipeline.utils
+# my own modules
+import pipeline.utils as utils
 import pipeline.exploration as exp
 import pipeline.modeling as pipe
 
@@ -52,6 +52,7 @@ def prepare_data(df):
     # create major city dummy for biggest cities
     big_cities = ['Los Angeles', 'Chicago', 'Houston', 'Brooklyn', 'Bronx', 'New York']
     df['in_big_city'] = np.where(df['school_city'].isin(big_cities), 1, 0)
+    
 
     # create dummies for female teacher and teacher with doctorate
     df['teacher_is_female'] = np.where(df['teacher_prefix'].isin(['Mrs.', 'Ms.']), True, False)
@@ -88,14 +89,9 @@ def run_models(config):
     # convert date fields and generate target variable
     df = convert_dates(raw_df)
 
-    # generate list of features
-    not_feature_cols = config['cols_to_exclude']
-    features = list(set(df.columns).difference(not_feature_cols))
-
     # create training and testing sets: expanding window cross-validation
     df = pipe.create_sliding_window_sets(df,
                                         'date_posted',
-                                        features,
                                         'not_funded',
                                         26)
 
@@ -111,7 +107,8 @@ def run_models(config):
                                             i.left,
                                             i.right)
 
-    # update feature list after feature transformation
+    # generate list of features after transformations are complete
+    not_feature_cols = config['cols_to_exclude']
     features = list(set(df.columns).difference(not_feature_cols))
 
     # run all models across 7 thresholds
@@ -127,19 +124,27 @@ def run_models(config):
 
 
 def analyze_results(thresh = None):
+    ''' Summarize results of model performance scores'''
 
     # read in model performance results
     results = pd.read_csv(config['results_file'])
 
-    # segment to just the 165 where the threhold was 5%
+    # segment to just a specific subset of results
     if thresh:
         results = results.loc[results['Threshold'] == thresh]
 
     # Create table showing precision, recall, and accuracy 
-    metrics = ['classifier', 'params', 'Train/Test Split ID', 'Precision', 'Recall', 'Accuracy', 'AUC_ROC Score']
+    metrics = ['classifier',
+               'params',
+               'Train/Test Split ID',
+               'Precision',
+               'Recall',
+               'Accuracy',
+               'AUC_ROC Score']
     results[metrics].groupby(['classifier', 'params', 'Train/Test Split ID']).mean().to_csv('output/Memo_Table.csv')
 
     return results, metrics
+
 
 if __name__ == "__main__":
 

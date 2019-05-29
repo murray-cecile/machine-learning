@@ -47,15 +47,6 @@ import graphviz
 # BUILD TRAINING AND TEST SETS
 #==============================================================================#
 
-def create_train_test_sets(df, target, features, size = 0.25):
-    ''' wrapper for scikitlearn's train_test_split 
-        Returns: x train, x test, y train, y test'''
-
-    y = df[target]
-    x = df[features]
-
-    return train_test_split(x, y, test_size=size)
-
 
 def create_temporal_split_sets(df, date_col, feature_list, target, split_date):
     ''' Takes full dataframe, string name of date columns, list of features,
@@ -109,8 +100,8 @@ def convert_duration_to_interval(df, date_col, time_interval, time_unit = "weeks
         return
 
 
-def create_sliding_window_sets(df, date_col, feature_list, target, time_interval):
-    ''' Takes full dataframe, string name of date column, list of features, 
+def create_sliding_window_sets(df, date_col, target, time_interval):
+    ''' Takes full dataframe, string name of date column, 
         string name of target variable, and number of intervals.
         Returns dataframe with bins corresponding to interval membership
     '''
