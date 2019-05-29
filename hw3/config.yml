@@ -1,0 +1,67 @@
+raw_data_file: 'projects_2012_2013'
+results_file: 'revised_test_run.csv'
+MODEL_GRID: 'TEST_CLASSIFIERS'
+
+cols_to_exclude: ['teacher_acctid',
+                    'schoolid',
+                    'school_ncesid',
+                    'school_latitude', 
+                    'school_longitude',
+                    'school_district',
+                    'school_county',
+                    'school_city',
+                    'projectid',
+                    'teacher_prefix',
+                    'date_posted',
+                    'datefullyfunded',
+                    'not_funded',
+                    'interval',
+                    'bins',
+                    'students_reached',
+                   'total_price_including_optional_support']
+
+PERCENTILES: [0.01, 0.02, 0.05, 0.1, 0.2, 0.3, 0.5]
+
+CLASSIFIERS: 
+    DecisionTree: 
+        max_depth': [1, 3, 5, 10, 15]
+        criterion: ['gini', 'entropy']
+    KNN:
+        n_neighbors : [10, 25, 50]
+        weights: ['uniform']
+    LogisticRegression': 
+        penalty: ['l1', 'l2']
+        C: [0.1, 1, 10, 100]
+    SVM: 
+        C: [0.1, 1, 10, 100]
+    BA:
+        n_estimators: [10, 25, 50]
+    GB: 
+        n_estimators: [10, 25, 50]   
+        
+    RandomForest: 
+        n_estimators: [10, 50, 100]
+        max_depth: [1, 5, 10, 15]
+        criterion: ['gini', 'entropy']
+                     
+TEST_CLASSIFIERS: 
+    DecisionTree: 
+        max_depth: [1]
+        criterion: ['gini']
+    KNN:
+        n_neighbors : [500]
+        weights: ['uniform']
+    LogisticRegression: 
+        penalty: ['l1']
+        C: [0.1]
+    SVM: 
+        C: [0.1]
+    BA:
+        n_estimators: [10]
+    GB: 
+        n_estimators: [10]   
+        
+    RandomForest: 
+        n_estimators: [10]
+        max_depth: [1]
+        criterion: ['gini']
