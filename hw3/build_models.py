@@ -127,11 +127,11 @@ if __name__ == "__main__":
     features = list(set(proj.columns).difference(not_feature_cols))
 
     # run all 165 models across 7 thresholds
-    pipe.test_over_time(proj,
-                        features,
-                        'not_funded', 
-                        'interval', 
-                        'date_posted', 
-                        lag_time=datetime.timedelta(days=60),
-                        to_file = 'revised_test_run.csv',
-                        classifier_dict = pipe.TEST_CLASSIFIERS)
+    final_df = pipe.test_over_time(proj,
+                                    features,
+                                    'not_funded', 
+                                    'interval', 
+                                    'date_posted', 
+                                    lag_time=datetime.timedelta(days=60),
+                                    to_file = 'revised_test_run.csv',
+                                    classifier_dict = pipe.TEST_CLASSIFIERS)

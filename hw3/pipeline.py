@@ -168,7 +168,7 @@ def create_sliding_window_sets(df, date_col, feature_list, target, time_interval
     breaks = convert_duration_to_interval(df, date_col, time_interval)
     df['interval'] = pd.cut(df[date_col], breaks, include_lowest=True)
    
-    return df
+    return df  
 
 
 def get_date_intervals(df, interval_col):
@@ -244,30 +244,40 @@ def get_feature_wt(dec_tree, feature_list):
     return dict(zip(feature_list, list(dec_tree.feature_importances_)))
 
 
-def compute_eval_stats(classifier, y_data, pred_scores, threshold):
+def compute_eval_stats(classifier, y_data, pred_scores, score_cutoff, k_list):
     ''' Takes: classifier object, true target data, predicted scores, 
-                prediction score threshold
-        Returns: accuracy, precision, recall of predictions of classifier on x for y
+                prediction score threshold, list of percentages of observations
+                to compute metrics over (i.e. list of k for precision at k)
+        Returns: accuracy, precision, recall, F1, and AUC-ROC of
+                 predictions of classifier on x for y
     '''
 
-    predicted_test = np.where(pred_scores > threshold, 1, 0)
-    
-    # print(threshold)
-    # print(predicted_test.sum())
-    # print(predicted_test[1:10])
-    # print("num unique ranks: ", pd.DataFrame(pred_scores)[0].unique().shape)
-    # print(pred_scores[1:10])
 
-    stats = [accuracy(y_data, predicted_test),
-            precision(y_data, predicted_test),
-            recall(y_data, predicted_test),
-            f1(y_data, predicted_test),
-            roc(y_data, predicted_test)]
+    stats = []
+    for k in k_list:
+
+        num_to_take = math.floor(k * pred_scores.shape[0])
+        top_k_scores = pred_scores.rank(method = "first").iloc[0:num_to_take]
+        predicted_test = np.where(top_k_scores > score_cutoff, 1, 0)
+        
+        y_data = # THIS IS A PROBLEM
+        
+        # print(threshold)
+        # print(predicted_test.sum())
+        # print(predicted_test[1:10])
+        # print("num unique ranks: ", pd.DataFrame(pred_scores)[0].unique().shape)
+        # print(pred_scores[1:10])
+
+        stats.append(accuracy(y_data, top_k_scores),
+                    precision(y_data, top_k_scores),
+                    recall(y_data, top_k_scores),
+                    f1(y_data, top_k_scores),
+                    roc(y_data, top_k_scores))
 
     return stats
 
 
-def compute_pred_scores(classifier, x_data, rank = False):
+def compute_pred_scores(classifier, x_data, rank = True):
     ''' Takes a classifier and feature data and generates predicted scores.
         If rank is True, then it returns rankings intead of scores.
     '''
@@ -319,23 +329,34 @@ def draw_precision_recall_curve(classifier, x_data, y_data):
 # TEST DIFFERENT PARAMETERS
 #==============================================================================#
 
+def make_eval_colnames(k_list):
+    ''' Takes: a list of K values for evaluation 
+        Returns: a list of column names for the resulting dataframe of metrics
+    '''
 
-def test_thresholds(classifier, y_data, pred_scores, threshold_list, labels = []):
+    base_cols = ['Accuracy', 'Precision', 'Recall', 'F1', 'AUC_ROC Score']
+    
+    return list(map(lambda x, k: x + " at k=" + k, base_cols * k, k_list))
+
+
+
+def test_thresholds(classifier, y_data, pred_scores, threshold_list, k_list = PERCENTILES, labels = []):
     ''' Takes classifier object, feature and target data, and list of score thresholds
         Returns: data frame summarizing performance for each threshold level
     '''
 
     results = []
-    cols = ['Accuracy', 'Precision', 'Recall', 'F1', 'AUC_ROC Score']
+    
 
     for t in threshold_list:
 
-        stats = compute_eval_stats(classifier, y_data, pred_scores, t)
-        results.append([stats[0], stats[1], stats[2], stats[3], stats[4]])
+        stats = compute_eval_stats(classifier, y_data, pred_scores, t, k_list)
+        results.append([*stats])
     
     if not labels:
         labels = threshold_list
     
+    cols = make_eval_colnames(k_list)
     results = pd.DataFrame(results, columns = cols)
     results['Threshold'] = labels
     
