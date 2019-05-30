@@ -12,6 +12,7 @@
 
  # basic dependencies
 import math
+import yaml
 import datetime
 import numpy as np
 import pandas as pd 
@@ -20,7 +21,7 @@ import plotnine as p9
 import matplotlib.pyplot as plt
 
 # my own library of useful functionsD
-import utils
+import pipeline.utils as utils
 
 # classifiers
 import sklearn.tree as tree
@@ -42,6 +43,55 @@ from sklearn.metrics import precision_recall_curve
 from sklearn.utils.fixes import signature
 from sklearn.utils import shuffle
 import graphviz 
+
+
+#==============================================================================#
+# GLOBAL DEFAULTS
+#==============================================================================#
+
+PERCENTILES = [0.01, 0.02, 0.05, 0.1, 0.2, 0.3, 0.5]
+
+CLASSIFIERS = {
+    'DecisionTree': {'max_depth': [1, 3, 5, 10, 15],
+                     'criterion': ['gini', 'entropy']
+                     },
+    'KNN': {'n_neighbors' : [10, 25, 50],
+            'weights': ['uniform']},
+    'LogisticRegression': {'penalty': ['l1', 'l2'],
+                            'C': [0.1, 1, 10, 100]
+                            },
+    'SVM': {'C' : [0.1, 1, 10, 100]
+            },
+    'BA': {'n_estimators': [10, 25, 50]
+            },
+    'GB': {'n_estimators': [10, 25, 50]   
+            },
+    'RandomForest': {'n_estimators': [10, 50, 100],
+                     'max_depth': [1, 5, 10, 15],
+                     'criterion': ['gini', 'entropy']
+                     }
+}
+
+TEST_CLASSIFIERS = {
+    'DecisionTree': {'max_depth': [1],
+                     'criterion': ['gini']
+                     },
+    # 'KNN': {'n_neighbors' : [5],
+    #         'weights': ['uniform']},
+    'LogisticRegression': {'penalty': ['l1'],
+                            'C': [0.1]
+                            },
+    'SVM': {'C' : [0.1]
+            },
+    'BA': {'n_estimators': [10]
+            },
+    'GB': {'n_estimators': [10]
+            },
+    'RandomForest': {'n_estimators': [1],
+                     'max_depth': [1],
+                     'criterion': ['gini']
+                     }
+}
 
 #==============================================================================#
 # BUILD TRAINING AND TEST SETS
@@ -254,29 +304,19 @@ def draw_precision_recall_curve(classifier, x_data, y_data):
 
     return
 
+
 #==============================================================================#
 # TEST DIFFERENT PARAMETERS
 #==============================================================================#
 
-def make_eval_colnames(k_list):
-    ''' Takes: a list of K values for evaluation 
-        Returns: a list of column names for the resulting dataframe of metrics
-    '''
 
-    base_cols = ['Accuracy', 'Precision', 'Recall', 'F1', 'AUC_ROC Score']
-    
-    return list(map(lambda x, k: x + " at k=" + k, base_cols * k, k_list))
-
-
-
-def test_thresholds(classifier, y_data, pred_scores, threshold_list, k_list = PERCENTILES, labels = []):
+def test_thresholds(classifier, y_data, pred_scores, threshold_list, labels = []):
     ''' Takes classifier object, feature and target data, and list of score thresholds
         Returns: data frame summarizing performance for each threshold level
     '''
 
     results = []
     
-
     for t in threshold_list:
 
         stats = compute_eval_stats(classifier, y_data, pred_scores, t)
@@ -285,7 +325,7 @@ def test_thresholds(classifier, y_data, pred_scores, threshold_list, k_list = PE
     if not labels:
         labels = threshold_list
     
-    cols = make_eval_colnames(k_list)
+    cols = ['Accuracy', 'Precision', 'Recall', 'F1', 'AUC_ROC Score']
     results = pd.DataFrame(results, columns = cols)
     results['Threshold'] = labels
     

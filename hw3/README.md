@@ -2,7 +2,7 @@
 
 * The writeup can be found in the top-level directory and is named HW3-Report.
 * The script build_models.py script the data cleaning, model runs, and performance evaluation.
-* The pipeline library has been split into three parts:
+* The pipeline/ directory contains the three parts of my pipeline:
     1. utils.py contains the methods for reading, cleaning and preparing data
     2. exploration.py contains the methods for exploratory analysis of features
     3. modeling.py contains the methods for building and evaluating classifiers

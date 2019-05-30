@@ -8,6 +8,7 @@
 # basic dependencies
 import yaml
 import datetime
+import warnings
 import numpy as np
 import pandas as pd 
 import seaborn as sns
@@ -71,7 +72,9 @@ def normalizer_func(df):
         to normalize project price and students reached
     '''
 
-    df['students_reached'] = df['students_reached'].fillna(0)
+    df['students_reached_isna'] = np.where(df['students_reached'].isna(), 1, 0)
+    avg_reached = df['students_reached'].mean()
+    df['students_reached'] = df['students_reached'].fillna(avg_reached)
     df['total_price_norm'] = preprocessing.scale(df['total_price_including_optional_support'].astype('float64'))
     df['students_reached_norm'] = preprocessing.scale(df['students_reached'].astype('float64'))
 
@@ -79,9 +82,6 @@ def normalizer_func(df):
 
 
 def run_models(config):
-
-    with open(config, 'r') as f:
-        config = yaml.safe_load(f.read())
 
     # read in raw data
     raw_df = utils.read_data(config['raw_data_file'], 'csv')
@@ -122,8 +122,10 @@ def run_models(config):
                                 classifier_dict = config[config['MODEL_GRID']],
                                 percentiles = config['PERCENTILES'])
 
+    return df, results
 
-def analyze_results(thresh = None):
+
+def analyze_results(config, thresh = None):
     ''' Summarize results of model performance scores'''
 
     # read in model performance results
@@ -146,7 +148,13 @@ def analyze_results(thresh = None):
     return results, metrics
 
 
+
 if __name__ == "__main__":
 
-    run_models("config.yml")
+    warnings.filterwarnings('ignore')
+
+    with open(config, 'r') as f:
+        config = yaml.safe_load(f.read())
+        
+    df, raw_results = run_models(config)
     results, metrics = analyze_results(thresh = 0.05)
