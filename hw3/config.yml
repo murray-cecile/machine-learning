@@ -1,6 +1,7 @@
 raw_data_file: 'projects_2012_2013'
-results_file: 'output/final_full_run.csv'
-MODEL_GRID: 'CLASSIFIERS'
+results_file: 'output/final_test_run.csv'
+memo_table: 'output/Memo_Table.csv'
+MODEL_GRID: 'TEST_CLASSIFIERS'
 
 cols_to_exclude: ['teacher_acctid',
                     'schoolid',
@@ -48,9 +49,9 @@ TEST_CLASSIFIERS:
     DecisionTree: 
         max_depth: [1]
         criterion: ['gini']
-    KNN:
-        n_neighbors : [500]
-        weights: ['uniform']
+    # KNN:
+    #     n_neighbors : [500]
+    #     weights: ['uniform']
     LogisticRegression: 
         penalty: ['l1']
         C: [0.1]

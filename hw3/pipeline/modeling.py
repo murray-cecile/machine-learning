@@ -382,7 +382,7 @@ def test_classifiers(x_train, y_train, x_test, y_test, to_file, classifier_dict 
         results.append(performance)
     
     if to_file:
-        pd.concat(results).to_csv('output/' + to_file, mode = 'a')
+        pd.concat(results).to_csv(to_file, mode = 'a')
     else:
         print(pd.concat(results))
 
@@ -422,7 +422,7 @@ def test_over_time(df, features, target, interval_col, date_col, to_file = '', l
         results.append(performance)
 
     if to_file:
-        pd.concat(results).to_csv('output/' + to_file, mode = 'w')    
+        pd.concat(results).to_csv(to_file, mode = 'w')    
 
     return pd.concat(results)
 

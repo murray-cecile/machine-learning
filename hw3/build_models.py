@@ -143,7 +143,7 @@ def analyze_results(config, thresh = None):
                'Recall',
                'Accuracy',
                'AUC_ROC Score']
-    results[metrics].groupby(['classifier', 'params', 'Train/Test Split ID']).mean().to_csv('output/Memo_Table.csv')
+    results[metrics].groupby(['classifier', 'params', 'Train/Test Split ID']).mean().to_csv(config['memo_table'])
 
     return results, metrics
 
@@ -153,8 +153,8 @@ if __name__ == "__main__":
 
     warnings.filterwarnings('ignore')
 
-    with open(config, 'r') as f:
+    with open("config.yml", 'r') as f:
         config = yaml.safe_load(f.read())
         
     df, raw_results = run_models(config)
-    results, metrics = analyze_results(thresh = 0.05)
+    results, metrics = analyze_results(config, thresh = 0.05)
