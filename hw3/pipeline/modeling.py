@@ -243,13 +243,13 @@ def compute_eval_stats(classifier, y_data, rankings, threshold):
         Returns: accuracy, precision, recall of predictions of classifier on x for y
     '''
 
-    predicted_test = np.where(rankings > threshold, 1, 0)
+    predicted_test = np.where(rankings < threshold, 1, 0)
     
     # print(threshold)
     # print(predicted_test.sum())
-    # print(predicted_test[1:10])
+    # print(predicted_test[0:10])
     # print("num unique ranks: ", pd.DataFrame(pred_scores)[0].unique().shape)
-    # print(pred_scores[1:10])
+    # print("eval stats rankings are: ", rankings[0:10])
 
     stats = [accuracy(y_data, predicted_test),
             precision(y_data, predicted_test),
@@ -272,7 +272,7 @@ def compute_pred_scores(classifier, x_data):
     else:
         pred_scores = classifier.predict_proba(x_data)[:,1]
 
-    return pd.DataFrame(pred_scores).rank(method='first')[0]
+    return pd.DataFrame(pred_scores).rank(method='first')[0].sort_values()
     
 
 
@@ -347,6 +347,7 @@ def test_classifier_parameters(classifier_type, x_train, y_train, x_test, y_test
         classifier = build_classifier(classifier_type, x_train, y_train, **p)
 
         ranks = compute_pred_scores(classifier, x_test)
+        # print("ranks are", ranks[0:10])
         rank_list = [y_test.count() - p * y_test.count() for p in percentiles]    
 
         test_performance = test_thresholds(classifier, y_test, ranks, rank_list, labels = percentiles)
